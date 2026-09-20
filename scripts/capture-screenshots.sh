@@ -9,6 +9,7 @@ collect_diagnostics() {
     mkdir -p artifacts/emulator-diagnostics
     adb logcat -b all -d > artifacts/logcat.txt 2>&1 || true
     adb shell dumpsys meminfo > artifacts/emulator-diagnostics/memory.txt 2>&1 || true
+    adb shell cat /proc/meminfo > artifacts/emulator-diagnostics/kernel-memory.txt 2>&1 || true
     adb shell getprop > artifacts/emulator-diagnostics/properties.txt 2>&1 || true
     adb shell df -h /data > artifacts/emulator-diagnostics/storage.txt 2>&1 || true
     adb exec-out screencap -p > artifacts/emulator-diagnostics/screen.png || true
@@ -25,6 +26,7 @@ BACKEND_REVISION=$(cat "$server/backend-revision")
 adb wait-for-device
 adb reverse tcp:5759 tcp:5759
 adb shell df -h /data
+adb shell cat /proc/meminfo
 main_apk=$(find "$apks" -name '*debug.apk' ! -name '*androidTest*' -print -quit)
 test_apk=$(find "$apks" -name '*androidTest.apk' -print -quit)
 [[ -n "$main_apk" && -n "$test_apk" ]] || { echo 'Both app and test APKs are required' >&2; exit 1; }
@@ -46,6 +48,7 @@ adb shell am instrument -w -r \
 adb logcat -d > artifacts/logcat.txt
 if ! grep -Eq '^OK \([1-9][0-9]* test' artifacts/instrumentation.log; then
     echo 'The real-device journey did not pass; refusing to publish screenshots.' >&2
+    collect_diagnostics
     mkdir -p artifacts/failed-screenshots
     adb pull /sdcard/Android/data/io.archivebox.app/files/screenshots/. artifacts/failed-screenshots/ || true
     exit 1
