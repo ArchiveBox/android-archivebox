@@ -10,6 +10,7 @@ export BACKEND_REVISION
 BACKEND_REVISION=$(cat "$server/backend-revision")
 adb wait-for-device
 adb reverse tcp:5759 tcp:5759
+adb shell df -h /data
 main_apk=$(find "$apks" -name '*debug.apk' ! -name '*androidTest*' -print -quit)
 test_apk=$(find "$apks" -name '*androidTest.apk' -print -quit)
 [[ -n "$main_apk" && -n "$test_apk" ]] || { echo 'Both app and test APKs are required' >&2; exit 1; }
