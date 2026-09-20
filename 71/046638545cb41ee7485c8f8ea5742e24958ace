@@ -1,0 +1,34 @@
+.github/dependabot.yml
+  h_923c208e183a7b 5-8,13-16
+.github/workflows/ci.yml
+  h_923c208e183a7b 83-88
+README.md
+  h_923c208e183a7b 8
+app/src/androidTest/java/io/archivebox/app/ArchiveBoxJourneyTest.kt
+  h_923c208e183a7b 7,36-48,58,74,112-115,129-135,149,226-238
+app/src/main/java/io/archivebox/app/ui/ConnectionSettings.kt
+  h_923c208e183a7b 8,23,31,38,49-60,79-81,86-87,123-124,144,152
+app/src/main/java/io/archivebox/app/ui/ServerBrowser.kt
+  h_923c208e183a7b 21-22,31-33,40-47,53,88-90,97-101
+app/src/main/java/io/archivebox/app/ui/SetupGuide.kt
+  h_923c208e183a7b 4-5,7,12,14,17-18,23,27-32,49-55,61-129
+app/src/main/res/layout/archive_widget.xml
+  h_923c208e183a7b 2
+docs/VALIDATION.md
+  h_923c208e183a7b 20-32
+scripts/capture-screenshots.sh
+  h_923c208e183a7b 8-10,16-20,33-34,64
+scripts/start-screenshot-server.sh
+  h_923c208e183a7b 22,31-37,39-40,42-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "71046638545cb41ee7485c8f8ea5742e24958ace",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
