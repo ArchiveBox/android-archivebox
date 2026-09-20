@@ -1,0 +1,16 @@
+.github/workflows/ci.yml
+  h_923c208e183a7b 106
+scripts/capture-screenshots.sh
+  h_923c208e183a7b 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "049287f19f5936c2f49bcba77d1d240a89626cf4",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
