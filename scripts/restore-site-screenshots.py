@@ -3,9 +3,11 @@
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+import hashlib
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 from urllib.error import HTTPError
 from urllib.request import urlopen
@@ -51,15 +53,32 @@ def restore_artifact():
         page += 1
 
 
+def restore_local():
+    source = Path(__file__).resolve().parent.parent / "docs" / "screenshots"
+    raw = (source / "manifest.json").read_bytes()
+    manifest = json.loads(raw)
+    if manifest.get("workflowRun"):
+        raise ValueError("Local bootstrap must retain its original local provenance")
+    for capture in manifest["screenshots"]:
+        name = capture["file"]
+        if not re.fullmatch(r"[a-z0-9-]+\.png", name):
+            raise ValueError("Unsafe local capture filename")
+        shutil.copyfile(source / name, args.destination / name)
+    (args.destination / "manifest.json").write_bytes(raw)
+    metadata = {"source": "checked-in-local", "commit": manifest["commit"],
+                "manifestSHA256": hashlib.sha256(raw).hexdigest()}
+    (args.destination / "capture-run.json").write_text(json.dumps(metadata) + "\n")
+    print(f"Restored local Android captures from {manifest['commit']} (app {manifest['appVersion']}); no hosted CI run claimed")
+    raise SystemExit(0)
+
+
 run = restore_artifact()
 if run is None:
     # Bootstrap before the first Pages deployment, including while the custom
     # domain certificate is still being provisioned. GitHub confirms no prior
     # deployment exists; TLS or fetch failures on an existing site still fail.
     if not api("deployments?environment=github-pages&per_page=1"):
-        (args.destination / "capture-run.json").write_text('{"pending": true}\n')
-        print("First Pages publication: gallery pending the first verified capture.")
-        raise SystemExit(0)
+        restore_local()
     # Published captures remain usable after Actions artifacts expire.
     base = "https://android.archivebox.io/screenshots/"
     try:
@@ -68,10 +87,10 @@ if run is None:
     except HTTPError as error:
         if error.code != 404:
             raise
-        (args.destination / "capture-run.json").write_text('{"pending": true}\n')
-        print("No verified gallery published yet; publish the website with a pending-gallery message.")
-        raise SystemExit(0)
+        restore_local()
     manifest = json.loads(raw)
+    if not manifest.get("workflowRun"):
+        restore_local()
     match = re.fullmatch(r"https://github\.com/ArchiveBox/android-archivebox/actions/runs/([1-9]\d*)", manifest["workflowRun"]["url"])
     if not match:
         raise ValueError("Unexpected published capture run URL")

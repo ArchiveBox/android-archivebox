@@ -1,0 +1,352 @@
+{
+  "schemaVersion": 1,
+  "commit": "b1d956bf8632c485dcb91910fa37c1c5728f5708",
+  "appVersion": "0.1.0",
+  "generatedAt": "2026-09-20T09:11:28.384421+00:00",
+  "device": "Google sdk_gphone16k_arm64 \u00b7 Android 17 (API 37)",
+  "backend": "7a5ad4c99ad796fd90aea7535e983297cb9f28b5",
+  "requiredScreenshots": [
+    "dark-mode",
+    "tablet",
+    "home",
+    "crawls",
+    "scheduled-crawls",
+    "archive-results",
+    "server-tags",
+    "ai-agent",
+    "users",
+    "personas",
+    "api-keys",
+    "webhooks",
+    "processes",
+    "machines",
+    "network-interfaces",
+    "binaries",
+    "plugins",
+    "workers",
+    "logs",
+    "widget",
+    "setup-docker",
+    "onboarding",
+    "connections",
+    "discovery",
+    "library",
+    "search",
+    "snapshot",
+    "add",
+    "tags",
+    "share",
+    "share-saved",
+    "activity",
+    "settings",
+    "server-browser"
+  ],
+  "screenshots": [
+    {
+      "id": "dark-mode",
+      "file": "dark-mode.png",
+      "title": "A quieter view",
+      "description": "Use the real Android dark appearance across the native app.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "503bfc377521f96b6c85d14bbe2355db9117aeccdf15d411f4b98388c5301f0b"
+    },
+    {
+      "id": "tablet",
+      "file": "tablet.png",
+      "title": "Room for your archive",
+      "description": "Use adaptive navigation on an actual tablet-size Android display.",
+      "width": 1280,
+      "height": 800,
+      "sha256": "0b20331cd8dc22c57746cc0d5971bc1636eb2dbf8bbfb2ecd1c27ce0b8ac4e85"
+    },
+    {
+      "id": "home",
+      "file": "home.png",
+      "title": "ArchiveBox at home",
+      "description": "Navigate collection, server tools, and helpful resources.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "b96649668252a7b673fd5bed84536484eeb1b70c3d52084daeed6f0f9d3a5efa"
+    },
+    {
+      "id": "crawls",
+      "file": "crawls.png",
+      "title": "Your crawls",
+      "description": "Inspect actual crawl history on your server.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "b2416ecf9cd095641d77973a818e4d870f096a4b995c4115a375b3eae9f6ec79"
+    },
+    {
+      "id": "scheduled-crawls",
+      "file": "scheduled-crawls.png",
+      "title": "Scheduled crawls",
+      "description": "Manage recurring captures on the server.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "9617e9d2f78c9a58143246240d97e8d56447b4c354025ece765cab8a26832a88"
+    },
+    {
+      "id": "archive-results",
+      "file": "archive-results.png",
+      "title": "Captured output formats",
+      "description": "Inspect real archive results and saved output files.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "3bf059f5e8cfa3c28ce5764186d046b466ec403d6b178aff87f67f60ffd28faf"
+    },
+    {
+      "id": "server-tags",
+      "file": "server-tags.png",
+      "title": "Organize your collection",
+      "description": "Manage the server collection tags.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "d310ba21a05e5fba1e08001cdb8df5b047ba7131f1b2afe85da0823144be719f"
+    },
+    {
+      "id": "ai-agent",
+      "file": "ai-agent.png",
+      "title": "AI Agent",
+      "description": "Access the server AI interface and its current availability.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "8b9aa828d94896372b9a2264ab6a988d90aa9f7812863582786f75284f3bbbde"
+    },
+    {
+      "id": "users",
+      "file": "users.png",
+      "title": "Users",
+      "description": "Manage accounts on your own server.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "c9160471af4a389b37b4a7ecaaaadea80ac1ebfddb6905a998c33a46ab28715e"
+    },
+    {
+      "id": "personas",
+      "file": "personas.png",
+      "title": "Personas",
+      "description": "Manage server capture identities for logged-in websites.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "5618cb955507708fb410754cda2acadb7eb0a46b59df62672e8513395502460f"
+    },
+    {
+      "id": "api-keys",
+      "file": "api-keys.png",
+      "title": "API keys",
+      "description": "Review access keys in authenticated administration.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "5da7ea2088d2fc2ae15346c42f7f07d747e555bba697e74f9746c5b4502fbe22"
+    },
+    {
+      "id": "webhooks",
+      "file": "webhooks.png",
+      "title": "Webhooks",
+      "description": "Configure outbound server notifications.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "7f8f73a7eae214cdef98f0966fe33d6b2ddfbef42029e84994d44cc6a82bda2a"
+    },
+    {
+      "id": "processes",
+      "file": "processes.png",
+      "title": "Processes",
+      "description": "Inspect real server processes and their status.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "20b2c5306ad1a99b702100087d5fac4a1675575c4872c5cdb36de8fee87bbfb6"
+    },
+    {
+      "id": "machines",
+      "file": "machines.png",
+      "title": "Machines",
+      "description": "See machines registered with your ArchiveBox server.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "3119b2e9d8573df8e81dbc15a49553f1df962287a0ddc0c54c12b595622c7256"
+    },
+    {
+      "id": "network-interfaces",
+      "file": "network-interfaces.png",
+      "title": "Network interfaces",
+      "description": "Inspect server networking.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "f0c500861c030f3188a5db7808bafd5a5c03e08bf38de3d1f24ece71cce5cda8"
+    },
+    {
+      "id": "binaries",
+      "file": "binaries.png",
+      "title": "Installed binaries",
+      "description": "See real capture executables available to the server.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "2c311ca1ff35c3a32a2f357334c5004075f2d448fceb05c499ea893ba5cdb609"
+    },
+    {
+      "id": "plugins",
+      "file": "plugins.png",
+      "title": "Plugins",
+      "description": "Inspect available archiving plugins.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "f921561ef57b1c8e47cba4347d65bc7dcda0fba5cee8cd635f9b95548f971756"
+    },
+    {
+      "id": "workers",
+      "file": "workers.png",
+      "title": "Workers",
+      "description": "View current server workers.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "8c84739d3cde0bb946b756a34491880cd43e0676a531e183ab75514d94025593"
+    },
+    {
+      "id": "logs",
+      "file": "logs.png",
+      "title": "Server logs",
+      "description": "Inspect actual server activity and diagnostics.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "5de4cba270e5e22055de6297dbd122b9e9e38f67aacb31d6b4bc09dc372cd36b"
+    },
+    {
+      "id": "widget",
+      "file": "widget.png",
+      "title": "ArchiveBox on your home screen",
+      "description": "Save or search from a real installed Android home screen widget.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "4ba612d3ea50b2611246314c4b9ab1700a72567e634ef2e4140baae3d38ad1ac"
+    },
+    {
+      "id": "setup-docker",
+      "file": "setup-docker.png",
+      "title": "Run your own server",
+      "description": "Follow the native Docker setup guide with the ready-to-copy command.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "9d42e952aa5288c456f53d78b4bb15b1931292996460427a071f864594741850"
+    },
+    {
+      "id": "onboarding",
+      "file": "onboarding.png",
+      "title": "Welcome to your archive",
+      "description": "Choose an existing server or follow the setup guide.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "d2dd3c8636445d8eceadc8cc89800f9e116ff19fc0f8b352d1c129819e23e168"
+    },
+    {
+      "id": "connections",
+      "file": "connections.png",
+      "title": "Your server, connected",
+      "description": "Connect with your server address and securely stored API key.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "2dc8a5ed6765dd88d11499e968c64165b445ec6a48cd113bae5e19dec8bbe32e"
+    },
+    {
+      "id": "discovery",
+      "file": "discovery.png",
+      "title": "Discover nearby servers",
+      "description": "Look for ArchiveBox servers on port 5759 on your local network and configured tailnet.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "c6ff3dbfe345fa58fd5404fb921c55051321ac7d9864a7524c1651f67a01d1a7"
+    },
+    {
+      "id": "library",
+      "file": "library.png",
+      "title": "Your saved web",
+      "description": "Browse the real ArchiveBox collection and archived pages.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "4f7fbc34efc4ee01082af893401ac5115ed94ac516d48d5fb70e6f7595482ae5"
+    },
+    {
+      "id": "search",
+      "file": "search.png",
+      "title": "Find it again",
+      "description": "Search saved pages by title, URL, or tags.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "3ac05da2d5ce0d1320f3bf26ddfe677a0d4a5fb6cb767d8cd1123620ad460d8a"
+    },
+    {
+      "id": "snapshot",
+      "file": "snapshot.png",
+      "title": "Open an archived page",
+      "description": "Read the preserved copy hosted on your ArchiveBox server.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "5edcce2c103ee3cd3eb4a5120798f162c33341479359dd1438607895b3b2b2a9"
+    },
+    {
+      "id": "add",
+      "file": "add.png",
+      "title": "Save a link",
+      "description": "Send URLs and capture preferences to your server.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "bfaf7f7ed47a051b3e82434f5ece133d13c59825d3a38577f427760aeb2709d1"
+    },
+    {
+      "id": "tags",
+      "file": "tags.png",
+      "title": "Make it easy to find",
+      "description": "Choose existing tags or add your own.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "7c720cd000d8f9b61f88288f48a38bfdfdafbbf0e998e601a8897662e4138f0a"
+    },
+    {
+      "id": "share",
+      "file": "share.png",
+      "title": "Share from any app",
+      "description": "Receive a real Android share intent and review the URL before saving.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "71ac915fb7af1f0232824600afc94a659b12c510438cf5fdb6be8251e0b5ebdf"
+    },
+    {
+      "id": "share-saved",
+      "file": "share-saved.png",
+      "title": "Saved to your archive",
+      "description": "Confirm the server accepted your link and its tags.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "6ccdc695e240aa3a432043454d1817e33f5e3ae251038c503dfc9165c0f9c1da"
+    },
+    {
+      "id": "activity",
+      "file": "activity.png",
+      "title": "Follow your collection",
+      "description": "See server activity and archiving progress.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "e7412c2ecdb982a27dcfd89ce4fbd2fcd20f4da0b40ad9435c769393785c2c75"
+    },
+    {
+      "id": "settings",
+      "file": "settings.png",
+      "title": "Connection Settings",
+      "description": "Manage your server and reopen the setup guide.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "d58b44d56a2993f7d6ae5760cea19f232302a7fb08888338e6a9de2247156a15"
+    },
+    {
+      "id": "server-browser",
+      "file": "server-browser.png",
+      "title": "Your server tools",
+      "description": "Use authenticated ArchiveBox administration inside the app.",
+      "width": 1080,
+      "height": 2400,
+      "sha256": "1f10525aaf046d20b6f70f5d23bb16ff65002d05fc48bc7c867aba876d0bb4ce"
+    }
+  ]
+}

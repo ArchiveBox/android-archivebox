@@ -28,7 +28,11 @@ async function loadCaptures(captureRun) {
   if (manifest.schemaVersion !== 1 || !/^[a-f0-9]{40}$/.test(manifest.commit) || !manifest.appVersion || !manifest.device || !Number.isFinite(Date.parse(manifest.generatedAt)) || !Array.isArray(manifest.screenshots)) throw new Error('Screenshot manifest is missing capture provenance');
   const expectedCommit = captureRun?.commit || process.env.GITHUB_SHA;
   if (expectedCommit && manifest.commit !== expectedCommit) throw new Error('Screenshots do not match the current commit');
-  if (captureRun && (captureRun.pending || manifest.workflowRun?.url !== captureRun.runURL)) throw new Error('Screenshots do not match the verified capture run');
+  if (captureRun?.source === 'checked-in-local') {
+    const checkedIn = await fs.readFile(path.join(root, 'docs/screenshots/manifest.json'));
+    const restored = await fs.readFile(path.join(input, 'manifest.json'));
+    if (manifest.workflowRun || captureRun.runURL || !checkedIn.equals(restored) || createHash('sha256').update(restored).digest('hex') !== captureRun.manifestSHA256) throw new Error('Local screenshots do not match their checked-in capture provenance');
+  } else if (captureRun && (captureRun.pending || manifest.workflowRun?.url !== captureRun.runURL)) throw new Error('Screenshots do not match the verified capture run');
   if (process.env.RELEASE_VERSION && manifest.appVersion !== process.env.RELEASE_VERSION) throw new Error('Screenshots do not match the release version');
   if (manifest.workflowRun?.url && !/^https:\/\/github\.com\/ArchiveBox\/android-archivebox\/actions\/runs\/\d+$/.test(manifest.workflowRun.url)) throw new Error('Unexpected capture workflow URL');
   const ids = new Set();
@@ -51,7 +55,7 @@ async function main() {
   if (output === root || root.startsWith(output + path.sep) || output === input || input.startsWith(output + path.sep) || ['docs', 'app', 'scripts', 'gradle', '.git'].some(directory => output === path.join(root, directory) || output.startsWith(path.join(root, directory) + path.sep))) throw new Error('Choose a separate build output directory');
   const captureRunPath = option('--capture-run', null);
   const captureRun = captureRunPath ? JSON.parse(await fs.readFile(path.resolve(root, captureRunPath), 'utf8')) : null;
-  if (captureRun && captureRun.pending !== true && (!/^[a-f0-9]{40}$/.test(captureRun.commit) || !/^https:\/\/github\.com\/ArchiveBox\/android-archivebox\/actions\/runs\/[1-9]\d*$/.test(captureRun.runURL))) throw new Error('Invalid restored capture run metadata');
+  if (captureRun && captureRun.pending !== true && (!/^[a-f0-9]{40}$/.test(captureRun.commit) || (captureRun.source === 'checked-in-local' ? !/^[a-f0-9]{64}$/.test(captureRun.manifestSHA256) || Boolean(captureRun.runURL) : !/^https:\/\/github\.com\/ArchiveBox\/android-archivebox\/actions\/runs\/[1-9]\d*$/.test(captureRun.runURL)))) throw new Error('Invalid restored capture run metadata');
   const manifest = await loadCaptures(captureRun);
   const displayOrder = ['home', 'share', 'share-saved', 'search', 'library', 'snapshot', 'add', 'tags', 'connections', 'discovery', 'onboarding', 'setup-docker', 'widget', 'dark-mode', 'tablet', 'activity', 'server-browser', 'crawls', 'scheduled-crawls', 'archive-results', 'server-tags', 'ai-agent', 'users', 'personas', 'api-keys', 'webhooks', 'processes', 'machines', 'network-interfaces', 'binaries', 'plugins', 'workers', 'logs', 'settings'];
   const captures = [...(manifest?.screenshots || [])].sort((left, right) => {
