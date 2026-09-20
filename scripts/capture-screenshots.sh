@@ -20,6 +20,11 @@ on_error() {
     exit "$failure_status"
 }
 trap on_error ERR
+if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
+    # The emulator action reports prelaunch errors but can still start the VM.
+    # Reject malformed API metadata here before installing or running anything.
+    grep -Fx 'target=android-37.0' "$HOME/.android/avd/test.ini"
+fi
 curl --fail --silent --show-error --max-time 10 "$(cat "$server/server-url")/api/v1/openapi.json" > /dev/null
 export BACKEND_REVISION
 BACKEND_REVISION=$(cat "$server/backend-revision")
