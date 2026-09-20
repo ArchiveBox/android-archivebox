@@ -97,6 +97,14 @@ jobs:
         with:
           packages: 'platform-tools'
           log-accepted-android-sdk-licenses: false
+      - name: Use current tools at the emulator action's fixed SDK path
+        shell: bash
+        run: |
+          sdk_tools=$(dirname "$(dirname "$(command -v sdkmanager)")")
+          grep -Eq '^Pkg.Revision=22\.' "$sdk_tools/source.properties"
+          mv "$ANDROID_HOME/cmdline-tools/latest" "$RUNNER_TEMP/android-cmdline-tools-preinstalled"
+          mv "$sdk_tools" "$ANDROID_HOME/cmdline-tools/latest"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
       - name: Enable hardware virtualization
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
