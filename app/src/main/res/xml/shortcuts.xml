@@ -1,0 +1,8 @@
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="add" android:enabled="true" android:icon="@drawable/ic_archivebox" android:shortcutShortLabel="@string/shortcut_add">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="io.archivebox.app" android:targetClass="io.archivebox.app.MainActivity" android:data="archivebox://add" />
+    </shortcut>
+    <shortcut android:shortcutId="search" android:enabled="true" android:icon="@drawable/ic_archivebox" android:shortcutShortLabel="@string/shortcut_search">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="io.archivebox.app" android:targetClass="io.archivebox.app.MainActivity" android:data="archivebox://search" />
+    </shortcut>
+</shortcuts>

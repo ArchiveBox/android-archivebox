@@ -1,0 +1,78 @@
+#!/usr/bin/env node
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const repo = 'https://github.com/ArchiveBox/android-archivebox';
+const option = (name, fallback) => {
+  const index = process.argv.indexOf(name);
+  if (index >= 0 && (!process.argv[index + 1] || process.argv[index + 1].startsWith('--'))) throw new Error(`Missing value for ${name}`);
+  return index < 0 ? fallback : process.argv[index + 1];
+};
+const input = path.resolve(root, option('--screenshots-dir', process.env.SCREENSHOTS_DIR || 'docs/screenshots'));
+const output = path.resolve(root, option('--output', '_site'));
+const canonical = new URL(process.env.SITE_URL || 'https://archivebox.github.io/android-archivebox/');
+if (!canonical.pathname.endsWith('/')) canonical.pathname += '/';
+const base = `/${option('--baseurl', canonical.pathname).replace(/^\/+|\/+$/g, '')}/`.replace('//', '/');
+const allowMissing = process.argv.includes('--allow-missing-screenshots') && !process.argv.includes('--require-screenshots') && !process.env.CI;
+const required = ['onboarding', 'connections', 'discovery', 'library', 'search', 'snapshot', 'add', 'tags', 'share', 'share-saved', 'activity', 'settings', 'server-browser'];
+const escape = value => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+
+async function loadCaptures() {
+  let manifest;
+  try { manifest = JSON.parse(await fs.readFile(path.join(input, 'manifest.json'), 'utf8')); }
+  catch (error) { if (error.code === 'ENOENT' && allowMissing) return null; throw error; }
+  if (manifest.schemaVersion !== 1 || !/^[a-f0-9]{40}$/.test(manifest.commit) || !manifest.appVersion || !manifest.device || !Number.isFinite(Date.parse(manifest.generatedAt)) || !Array.isArray(manifest.screenshots)) throw new Error('Screenshot manifest is missing capture provenance');
+  if (process.env.GITHUB_SHA && manifest.commit !== process.env.GITHUB_SHA) throw new Error('Screenshots do not match the current commit');
+  if (process.env.RELEASE_VERSION && manifest.appVersion !== process.env.RELEASE_VERSION) throw new Error('Screenshots do not match the release version');
+  if (manifest.workflowRun?.url && !/^https:\/\/github\.com\/ArchiveBox\/android-archivebox\/actions\/runs\/\d+$/.test(manifest.workflowRun.url)) throw new Error('Unexpected capture workflow URL');
+  const ids = new Set();
+  for (const capture of manifest.screenshots) {
+    if (!/^[a-z0-9-]+$/.test(capture.id) || ids.has(capture.id) || capture.file !== `${capture.id}.png` || !capture.title || !capture.description) throw new Error('Invalid or duplicate screenshot entry');
+    ids.add(capture.id);
+    const png = await fs.readFile(path.join(input, capture.file));
+    if (png.length < 24 || png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' || png.readUInt32BE(16) !== capture.width || png.readUInt32BE(20) !== capture.height || capture.width < 320 || capture.height < 320 || createHash('sha256').update(png).digest('hex') !== capture.sha256) throw new Error(`Invalid screenshot dimensions or digest: ${capture.file}`);
+  }
+  for (const id of required) if (!ids.has(id)) throw new Error(`Missing required screenshot: ${id}`);
+  return manifest;
+}
+
+async function main() {
+  if (output === root || root.startsWith(output + path.sep) || output === input || input.startsWith(output + path.sep) || ['docs', 'app', 'scripts', 'gradle', '.git'].some(directory => output === path.join(root, directory) || output.startsWith(path.join(root, directory) + path.sep))) throw new Error('Choose a separate build output directory');
+  const manifest = await loadCaptures();
+  const captures = manifest?.screenshots || [];
+  const revision = manifest?.commit || 'local-preview';
+  const [header, footer, landing] = await Promise.all(['header.html', 'footer.html', 'index.html'].map(file => fs.readFile(path.join(root, 'docs', file), 'utf8')));
+  const description = 'Save the web you want to keep. Share links with tags, search your archive, and connect to your own ArchiveBox server from Android.';
+  const page = (title, content, route = '') => `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#9b2854"><title>${escape(title)}</title><meta name="description" content="${description}"><link rel="canonical" href="${canonical}${route}"><meta name="robots" content="index,follow,max-image-preview:large"><meta property="og:type" content="website"><meta property="og:site_name" content="ArchiveBox"><meta property="og:locale" content="en_US"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${description}"><meta property="og:url" content="${canonical}${route}"><meta property="og:image" content="${canonical}assets/social-card.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="ArchiveBox — a home for the web you want to keep"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${escape(title)}"><meta name="twitter:description" content="${description}"><meta name="twitter:image" content="${canonical}assets/social-card.png"><link rel="icon" href="${base}assets/favicon.ico"><link rel="apple-touch-icon" href="${base}assets/apple-touch-icon.png"><link rel="stylesheet" href="${base}style.css?v=${revision}"><link rel="stylesheet" href="${base}site-chrome.css?v=${revision}"></head><body><a class="skip-link" href="#content">Skip to content</a>${header}<main id="content">${content}</main>${footer}</body></html>`.replaceAll('__BASE__', base);
+  const screenshotURL = capture => `${base}screenshots/${escape(capture.file)}?v=${capture.sha256.slice(0, 12)}`;
+  const phone = id => {
+    const capture = captures.find(item => item.id === id);
+    if (!capture) return `<div class="capture-placeholder"><img src="${base}assets/icon.png" width="64" height="64" alt=""><strong>Your archive.<br>Made for Android.</strong><p>Real app screenshots will appear here after the first successful release capture.</p></div>`;
+    return `<figure class="phone-capture"><a href="${base}screenshots/#${capture.id}"><img src="${screenshotURL(capture)}" width="${capture.width}" height="${capture.height}" alt="${escape(capture.title)}"></a><figcaption>${escape(capture.title)} · Android</figcaption></figure>`;
+  };
+  let gallery = '<section class="gallery-header"><p class="eyebrow">THE REAL APP. EVERY MAJOR FLOW.</p><h1>Take a look around.</h1><p class="lead">From your first connection to your next saved page. These screenshots come from the Android app, captured again for each release.</p></section>';
+  if (manifest) {
+    gallery += `<p class="provenance">App ${escape(manifest.appVersion)} · ${escape(manifest.device)} · <a href="${repo}/commit/${manifest.commit}">${manifest.commit.slice(0, 12)}</a> · <time datetime="${escape(manifest.generatedAt)}">${escape(manifest.generatedAt)}</time>${manifest.workflowRun?.url ? ` · <a href="${manifest.workflowRun.url}">Capture run ↗</a>` : ' · Local capture'} · <a href="manifest.json">Capture manifest</a>${manifest.backend ? `<br>Backend: ${escape(manifest.backend)}` : ''}</p>`;
+    gallery += `<ul class="capture-index">${captures.map(capture => `<li><a href="#${capture.id}">${escape(capture.title)}</a></li>`).join('')}</ul>`;
+    gallery += `<div class="gallery-grid">${captures.map(capture => `<article class="capture" id="${capture.id}"><h2>${escape(capture.title)}</h2><p>${escape(capture.description)}</p><figure><a href="${screenshotURL(capture)}"><img src="${screenshotURL(capture)}" width="${capture.width}" height="${capture.height}" alt="${escape(capture.title)} — ${escape(capture.description)}" loading="lazy"></a><figcaption>${capture.width} × ${capture.height} · <a href="${screenshotURL(capture)}">View full image ↗</a></figcaption></figure></article>`).join('')}</div>`;
+  } else gallery += `<p class="empty">The first complete capture has not been published. This local preview deliberately shows no substitute screenshots. <a href="${repo}/actions">View build progress ↗</a></p>`;
+  gallery += '<section class="coverage"><h2>A gallery that follows the app</h2><p>Every release requires captures of onboarding, connections, discovery, the library, search, snapshot details, adding URLs, tags, sharing, save confirmation, activity, settings, and server pages. Each image has a recorded size and checksum. A release site build fails if any required capture is missing or belongs to another commit.</p></section>';
+  await fs.rm(output, {recursive: true, force: true});
+  await fs.mkdir(path.join(output, 'screenshots'), {recursive: true});
+  for (const file of ['assets', 'style.css', 'site-chrome.css']) await fs.cp(path.join(root, 'docs', file), path.join(output, file), {recursive: true});
+  if (manifest) {
+    await fs.copyFile(path.join(input, 'manifest.json'), path.join(output, 'screenshots', 'manifest.json'));
+    for (const capture of captures) await fs.copyFile(path.join(input, capture.file), path.join(output, 'screenshots', capture.file));
+  }
+  await fs.writeFile(path.join(output, 'index.html'), page('ArchiveBox for Android · Your web, preserved.', landing.replace('__HERO_SCREENSHOT__', phone('library')).replace('__SHARE_SCREENSHOT__', phone('share'))));
+  await fs.writeFile(path.join(output, 'screenshots', 'index.html'), page('Screenshots · ArchiveBox for Android', gallery, 'screenshots/'));
+  await fs.writeFile(path.join(output, '.nojekyll'), '');
+  await fs.writeFile(path.join(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escape(canonical)}</loc></url><url><loc>${escape(canonical)}screenshots/</loc></url></urlset>\n`);
+  await fs.writeFile(path.join(output, 'build.json'), JSON.stringify({revision, generatedAt: new Date().toISOString(), screenshots: captures.length, appVersion: manifest?.appVersion || null}, null, 2) + '\n');
+  console.log(`Built ${output}: ${captures.length} real screenshots${manifest ? '' : ' (unpublished local preview)'}`);
+}
+main().catch(error => { console.error(error.message); process.exitCode = 1; });

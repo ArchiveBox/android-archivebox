@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">ArchiveBox</string>
+    <string name="widget_description">Save links and search your archive from your home screen.</string>
+    <style name="Theme.ArchiveBox" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+    </style>
+    <string name="shortcut_add">Save a URL</string>
+    <string name="shortcut_search">Search archive</string>
+</resources>

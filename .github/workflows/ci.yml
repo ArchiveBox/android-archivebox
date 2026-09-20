@@ -1,0 +1,215 @@
+name: Android build, capture, and release
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.event_name == 'pull_request' && github.ref || 'main-release' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  BACKEND_REVISION: 070b8ae9c5d81fbf41e0d55bd7b0096aa322ccab
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.version.outputs.version }}
+      code: ${{ steps.version.outputs.code }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node scripts/test-release-version.mjs
+      - id: version
+        run: node scripts/release-version.mjs
+
+  verify:
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile, lint, and test
+        run: ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug assembleDebugAndroidTest -PversionName=${{ needs.version.outputs.name }} -PversionCode=${{ needs.version.outputs.code }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-test-apks
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/androidTest/debug/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-verification-reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+
+  capture:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: ArchiveBox/ArchiveBox
+          ref: ${{ env.BACKEND_REVISION }}
+          path: backend
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.13'
+      - name: Install pinned real ArchiveBox server
+        run: uv sync --frozen --project backend
+      - name: Archive real pages and start the server
+        run: bash scripts/start-screenshot-server.sh "$GITHUB_WORKSPACE/backend" "$RUNNER_TEMP/archivebox-capture"
+      - uses: actions/download-artifact@v5
+        with:
+          name: android-test-apks
+          path: artifacts/apks
+      - name: Enable hardware virtualization
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 37
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          script: bash scripts/capture-screenshots.sh "$RUNNER_TEMP/archivebox-capture" artifacts/screenshots artifacts/apks
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-screenshots
+          path: artifacts/screenshots/
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: capture-diagnostics
+          path: |
+            artifacts/instrumentation.log
+            artifacts/logcat.txt
+            ${{ runner.temp }}/archivebox-capture/server.log
+
+  site:
+    needs: [capture, version]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v5
+        with:
+          name: android-screenshots
+          path: artifacts/screenshots
+      - name: Build website from this revision's verified captures
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.name }}
+        run: node scripts/build-site.mjs --screenshots-dir artifacts/screenshots --require-screenshots
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  release:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [version, verify, capture, site]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/.release-signing.jks
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Restore persistent signing identity
+        shell: bash
+        run: |
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing $name. Configure the permanent Android release signing identity; see docs/RELEASES.md."
+              exit 1
+            fi
+          done
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+      - name: Build signed APK and Play bundle
+        run: ./gradlew --no-daemon assembleRelease bundleRelease -PversionName=${{ needs.version.outputs.name }} -PversionCode=${{ needs.version.outputs.code }}
+      - name: Stage and verify signed artifacts
+        shell: bash
+        run: |
+          mkdir -p artifacts/releases
+          cp app/build/outputs/apk/release/app-release.apk artifacts/releases/ArchiveBox-Android.apk
+          cp app/build/outputs/bundle/release/app-release.aab artifacts/releases/ArchiveBox-Android.aab
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$apksigner" verify --verbose --print-certs artifacts/releases/ArchiveBox-Android.apk
+          jarsigner -verify artifacts/releases/ArchiveBox-Android.aab
+          cd artifacts/releases
+          sha256sum ArchiveBox-Android.apk ArchiveBox-Android.aab > SHA256SUMS
+      - uses: actions/download-artifact@v5
+        with:
+          name: android-screenshots
+          path: artifacts/screenshots
+      - name: Publish stable download names and capture provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        shell: bash
+        run: |
+          tar -czf artifacts/releases/ArchiveBox-Android-screenshots.tar.gz -C artifacts/screenshots .
+          if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "ArchiveBox Android $RELEASE_TAG" --generate-notes --draft
+          fi
+          gh release upload "$RELEASE_TAG" artifacts/releases/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest
+      - name: Remove private signing material
+        if: always()
+        run: rm -f "$ANDROID_KEYSTORE_PATH"
+
+  pages:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [site, release]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
+        id: deployment
