@@ -1,0 +1,14 @@
+docs/screenshots/manifest.json
+  h_923c208e183a7b 3,5,7,52,61,70,79,88,97,106,115,124,133,142,151,160,169,178,187,196,205,214,223,232,241,250,256,259,268,277,286,295,304,313,322,331,340,349
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "80f24b3beb1168bfec12efd1955afd410809915f",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
