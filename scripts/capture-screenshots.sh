@@ -24,7 +24,7 @@ curl --fail --silent --show-error --max-time 10 "$(cat "$server/server-url")/api
 export BACKEND_REVISION
 BACKEND_REVISION=$(cat "$server/backend-revision")
 adb wait-for-device
-adb reverse tcp:5759 tcp:5759
+adb reverse tcp:5797 tcp:5797
 adb shell df -h /data
 adb shell cat /proc/meminfo
 main_apk=$(find "$apks" -name '*debug.apk' ! -name '*androidTest*' -print -quit)
@@ -42,7 +42,7 @@ api_token=$(cat "$server/api-token")
 if [[ "${GITHUB_ACTIONS:-}" == true ]]; then printf '::add-mask::%s\n' "$api_token"; fi
 adb shell am instrument -w -r \
     -e class io.archivebox.app.ArchiveBoxJourneyTest,io.archivebox.app.WidgetJourneyTest,io.archivebox.app.VisualProfilesTest \
-    -e serverUrl http://127.0.0.1:5759 \
+    -e serverUrl http://127.0.0.1:5797 \
     -e apiToken "$api_token" \
     io.archivebox.app.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/instrumentation.log
 adb logcat -d > artifacts/logcat.txt
@@ -89,7 +89,7 @@ labels = {
     'setup-docker': ('Run your own server', 'Follow the native Docker setup guide with the ready-to-copy command.'),
     'onboarding': ('Welcome to your archive', 'Choose an existing server or follow the setup guide.'),
     'connections': ('Your server, connected', 'Connect with your server address and securely stored API key.'),
-    'discovery': ('Discover nearby servers', 'Look for ArchiveBox servers on port 5759 on your local network and configured tailnet.'),
+    'discovery': ('Discover nearby servers', 'Look for ArchiveBox servers on port 5797 on your local network and configured tailnet.'),
     'library': ('Your saved web', 'Browse the real ArchiveBox collection and archived pages.'),
     'search': ('Find it again', 'Search saved pages by title, URL, or tags.'),
     'snapshot': ('Open an archived page', 'Read the preserved copy hosted on your ArchiveBox server.'),

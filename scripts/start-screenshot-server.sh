@@ -9,7 +9,7 @@ if [[ -n "$(ls -A "$data")" ]]; then
     echo "Refusing to reuse a nonempty screenshot collection: $data" >&2
     exit 1
 fi
-port=${SCREENSHOT_SERVER_PORT:-5759}
+port=${SCREENSHOT_SERVER_PORT:-5797}
 export BASE_URL="http://127.0.0.1:$port" BIND_ADDR="127.0.0.1:$port"
 export SCREENSHOT_USERNAME=android-captures
 export SCREENSHOT_PASSWORD
