@@ -1,0 +1,16 @@
+docs/WEBSITE.md
+  h_923c208e183a7b 20
+scripts/build-site.mjs
+  h_923c208e183a7b 41-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2fae904a695ba331725c48cd3b6bd7a731123305",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
