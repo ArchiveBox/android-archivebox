@@ -32,7 +32,7 @@ test_apk=$(find "$apks" -name '*androidTest.apk' -print -quit)
 if adb shell pm list packages io.archivebox.app | grep -q '^package:io.archivebox.app$'; then
     adb uninstall io.archivebox.app
 fi
-# Push APKs before invoking PackageManager: avoid its streamed-install pipe on API 37.
+# Separate APK transfer from PackageManager installation for clear failure diagnostics.
 adb install --no-streaming "$main_apk"
 adb install --no-streaming -r "$test_apk"
 # Preserve real failures: instrumentation exit status alone does not report failed tests.
