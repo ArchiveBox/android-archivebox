@@ -41,7 +41,10 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4.0.4
+        with:
+          packages: 'platform-tools build-tools;36.0.0 platforms;android-37.0'
+          log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
       - name: Compile, lint, and test
         run: ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug assembleDebugAndroidTest -PversionName=${{ needs.version.outputs.name }} -PversionCode=${{ needs.version.outputs.code }}
@@ -90,7 +93,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 37
+          api-level: '37.0'
           target: google_apis
           arch: x86_64
           profile: pixel_7
@@ -152,7 +155,10 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4.0.4
+        with:
+          packages: 'platform-tools build-tools;36.0.0 platforms;android-37.0'
+          log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
       - name: Restore persistent signing identity
         shell: bash
