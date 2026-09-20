@@ -65,7 +65,8 @@ internal class NavigationState : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun ArchiveBoxApp(repository: ArchiveRepository, incoming: IncomingRequest?, onConsumed: () -> Unit, onFinishShare: () -> Unit) {
-    val connection by repository.connection.collectAsStateWithLifecycle()
+    val registry by repository.registry.collectAsStateWithLifecycle()
+    val connection = registry.active_server
     val setupDismissed by repository.setupDismissed.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var screen by rememberSaveable { mutableStateOf("Archive") }
@@ -141,7 +142,7 @@ internal class NavigationState : ViewModel() {
         ModalBottomSheet(onDismissRequest = { if (!preventShareDismiss) { shareRequest = null; if (request.externalShare) onFinishShare() } }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { it != SheetValue.Hidden || !preventShareDismiss })) {
             Column(Modifier.fillMaxWidth().fillMaxHeight(.91f).testTag("share.sheet")) {
                 Text("Save to ArchiveBox", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-                AddScreen(repository, connection, request.text, onConnect = { shareRequest = null; screen = "Settings" }, onDone = { preventShareDismiss = false; shareRequest = null; if (request.externalShare) onFinishShare() }, requestId = request.nonce, onPreventDismiss = { preventShareDismiss = it })
+                AddScreen(repository, registry.default_servers.firstOrNull(), request.text, onConnect = { shareRequest = null; screen = "Settings" }, onDone = { preventShareDismiss = false; shareRequest = null; if (request.externalShare) onFinishShare() }, requestId = request.nonce, onPreventDismiss = { preventShareDismiss = it })
             }
         }
     }
@@ -154,7 +155,7 @@ internal class NavigationState : ViewModel() {
     }
 }
 
-@Composable private fun HomeScreen(connection: Connection?, onAdd: () -> Unit, onSearch: () -> Unit, onConnect: () -> Unit, onRoute: (ServerRoute) -> Unit) {
+@Composable private fun HomeScreen(connection: ServerConfiguration?, onAdd: () -> Unit, onSearch: () -> Unit, onConnect: () -> Unit, onRoute: (ServerRoute) -> Unit) {
     val context = LocalContext.current
     LazyColumn(Modifier.fillMaxSize().testTag("home"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {

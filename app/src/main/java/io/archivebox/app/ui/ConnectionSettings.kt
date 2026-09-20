@@ -32,7 +32,8 @@ import io.archivebox.app.BuildConfig
 import kotlinx.coroutines.launch
 
 @Composable internal fun ConnectionSettings(repository: ArchiveRepository, incoming: IncomingRequest?, onRequestConsumed: () -> Unit, onGuide: () -> Unit) {
-    val connection by repository.connection.collectAsStateWithLifecycle()
+    val registry by repository.registry.collectAsStateWithLifecycle()
+    val connection = registry.active_server
     var server by rememberSaveable { mutableStateOf(connection?.server.orEmpty()) }
     // Credentials intentionally remain in memory, never in Android's saved-instance bundle.
     var token by remember { mutableStateOf(connection?.takeIf { sameOrigin(it.server, server) }?.token.orEmpty()) }
@@ -84,7 +85,9 @@ import kotlinx.coroutines.launch
                 busy = true; error = null; status = null
                 try {
                     val canonical = repository.api.discover(requestedServer)
-                    val candidate = Connection(canonical, requestedToken, connection?.persona ?: "Default")
+                    val previous = registry.servers.find { it.server == canonical }
+                    val candidate = if (previous == null) ServerConfiguration(name = java.net.URI(canonical).host ?: canonical, server = canonical, token = requestedToken)
+                        else previous.copy(token = requestedToken)
                     repository.api.testToken(candidate)
                     server = canonical
                     if (save) { repository.saveConnection(candidate); repository.dismissSetup() }

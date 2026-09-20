@@ -28,24 +28,24 @@ internal class SubmissionState(initialText: String, initialPersona: String) : Vi
     val busy = mutableStateOf(false)
     val error = mutableStateOf<String?>(null)
     val tagError = mutableStateOf<String?>(null)
-    val receipt = mutableStateOf<Receipt?>(null)
+    val receipt = mutableStateOf<SubmissionReceipt?>(null)
     val tagsSaved = mutableStateOf(false)
     val removing = mutableStateOf(false)
     val removed = mutableStateOf(false)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
-@Composable internal fun AddScreen(repository: ArchiveRepository, connection: Connection?, initialText: String, onConnect: () -> Unit, onDone: (() -> Unit)? = null, requestId: String = "main", onPreventDismiss: (Boolean) -> Unit = {}) {
+@Composable internal fun AddScreen(repository: ArchiveRepository, connection: ServerConfiguration?, initialText: String, onConnect: () -> Unit, onDone: (() -> Unit)? = null, requestId: String = "main", onPreventDismiss: (Boolean) -> Unit = {}) {
     if (connection == null) { ConnectPrompt(onConnect); return }
-    val model: SubmissionState = viewModel(key = "submission:${connection.server}:${connection.token.hashCode()}:$requestId") { SubmissionState(initialText, connection.persona) }
+    val model: SubmissionState = viewModel(key = "submission:${connection.id}:$requestId") { SubmissionState(initialText, connection.persona ?: "Default") }
     val scope = model.viewModelScope
     // Shared content and submission receipts remain in memory; there is no offline submission queue.
     var text by model.text
     var tags by model.tags
     var tagDraft by model.tagDraft
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
-    var serverTags by remember(connection.server) { mutableStateOf<List<String>>(emptyList()) }
-    var personas by remember { mutableStateOf<List<Persona>>(emptyList()) }
+    var serverTags by remember(connection.id) { mutableStateOf<List<String>>(emptyList()) }
+    var personas by remember { mutableStateOf<List<ServerPersona>>(emptyList()) }
     var persona by model.persona
     var personaMenu by remember { mutableStateOf(false) }
     var busy by model.busy
@@ -57,8 +57,8 @@ internal class SubmissionState(initialText: String, initialPersona: String) : Vi
     var removed by model.removed
     var confirmRemoval by remember { mutableStateOf(false) }
     SideEffect { onPreventDismiss(busy || removing || !removed && receipt != null && (!tagsSaved || tagDraft.isNotBlank())) }
-    LaunchedEffect(connection.server) {
-        suggestions = repository.recentTags(connection.server)
+    LaunchedEffect(connection.id) {
+        suggestions = repository.recentTags(connection.id)
         try { personas = repository.api.personas(connection) } catch (_: Exception) { /* Server default remains usable when persona listing is restricted. */ }
     }
     val tagQuery = tagDraft.substringAfterLast(',').trim()
@@ -74,8 +74,8 @@ internal class SubmissionState(initialText: String, initialPersona: String) : Vi
         busy = true; tagError = null; tagsSaved = false
         try {
             repository.api.updateTags(connection, accepted, tags)
-            repository.rememberTags(connection.server, tags)
-            suggestions = repository.recentTags(connection.server)
+            repository.rememberTags(connection.id, tags)
+            suggestions = repository.recentTags(connection.id)
             tagsSaved = true
         } catch (e: Exception) { tagError = e.message ?: "Couldn't save tags." }
         finally { busy = false }
@@ -98,7 +98,7 @@ internal class SubmissionState(initialText: String, initialPersona: String) : Vi
                 val count = extractUrls(text).size
                 Text(if (count == 1) "1 link ready to save" else "$count links ready to save", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                receipt!!.urls.forEach { url -> Text(url, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("share.url")) }
+                receipt!!.queued_urls.forEach { url -> Text(url, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("share.url")) }
             }
             SectionTitle("Organize with tags")
             val domain = extractUrls(text).firstOrNull()?.toHttpUrlOrNull()?.let { it.topPrivateDomain() ?: it.host }
@@ -126,7 +126,7 @@ internal class SubmissionState(initialText: String, initialPersona: String) : Vi
                 Box {
                     OutlinedButton(onClick = { personaMenu = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("add.persona")) { Icon(Icons.Outlined.AccountCircle, null); Spacer(Modifier.width(8.dp)); Text(persona); Spacer(Modifier.weight(1f)); Icon(Icons.Outlined.ExpandMore, null) }
                     DropdownMenu(expanded = personaMenu, onDismissRequest = { personaMenu = false }) {
-                        (listOf("Default") + personas.map { it.name }).distinct().forEach { name -> DropdownMenuItem(text = { Text(name) }, onClick = { persona = name; personaMenu = false; scope.launch { runCatching { repository.saveConnection(connection.copy(persona = name)) }.onFailure { error = it.message } } }) }
+                        (listOf("Default") + personas.map { it.name }).distinct().forEach { name -> DropdownMenuItem(text = { Text(name) }, onClick = { persona = name; personaMenu = false; scope.launch { runCatching { repository.saveConnection(connection.copy(persona = name), select = false) }.onFailure { error = it.message } } }) }
                     }
                 }
                 Text("Choose a server persona to capture pages that need a login.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -22,10 +22,10 @@ import io.archivebox.app.data.*
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
-@Composable internal fun SearchScreen(repository: ArchiveRepository, connection: Connection?, initialQuery: String, onConnect: () -> Unit, onOpen: (Snapshot) -> Unit) {
+@Composable internal fun SearchScreen(repository: ArchiveRepository, connection: ServerConfiguration?, initialQuery: String, onConnect: () -> Unit, onOpen: (ArchiveSnapshot) -> Unit) {
     if (connection == null) { ConnectPrompt(onConnect); return }
     var query by rememberSaveable(initialQuery) { mutableStateOf(initialQuery) }
-    var results by remember(connection) { mutableStateOf<List<Snapshot>>(emptyList()) }
+    var results by remember(connection) { mutableStateOf<List<ArchiveSnapshot>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var searched by remember { mutableStateOf(false) }

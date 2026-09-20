@@ -18,11 +18,12 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-data class Connection(val server: String, val token: String, val persona: String = "Default")
-data class Snapshot(val id: String, val title: String, val url: String, val tags: List<String>)
-data class Receipt(val crawlId: String, val urls: List<String>)
-data class Persona(val id: String, val name: String)
-data class BrowserSession(val adminUrl: String, val cookieName: String, val cookieValue: String, val secure: Boolean)
+data class ArchiveSnapshot(val id: String, val title: String, val url: String, val tags: List<String>)
+data class SubmissionReceipt(val server_id: String, val crawl_id: String, val queued_urls: List<String>)
+data class ServerPersona(val id: String, val name: String)
+data class BrowserSession(val admin_url: String, val cookie: Cookie) {
+    data class Cookie(val name: String, val value: String, val expires: Double, val secure: Boolean)
+}
 data class DiscoveredServer(val url: String, val label: String)
 
 fun normalizeServer(input: String): String {
@@ -121,66 +122,66 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
         return server
     }
 
-    suspend fun testToken(connection: Connection) {
+    suspend fun testToken(connection: ServerConfiguration) {
         require(connection.token.isNotBlank()) { "Enter your API key." }
         val result = request(connection.server, "api/v1/auth/check_api_token", body = JSONObject().put("token", connection.token))
         require(result.optBoolean("success") && !result.isNull("user_id")) { "This API key is invalid or expired." }
     }
 
-    suspend fun snapshots(connection: Connection, query: String = "", offset: Int = 0): List<Snapshot> {
+    suspend fun snapshots(connection: ServerConfiguration, query: String = "", offset: Int = 0): List<ArchiveSnapshot> {
         require(offset >= 0)
         val result = request(connection.server, "api/v1/core/snapshots", connection.token,
             query = mapOf("search" to query, "search_mode" to "meta", "limit" to "50", "offset" to offset.toString()))
         return result.getJSONArray("items").objects().map {
-            Snapshot(it.getString("id"), it.optString("title").takeUnless { value -> value == "null" }.orEmpty(), it.getString("url"), it.optJSONArray("tags")?.strings().orEmpty())
+            ArchiveSnapshot(it.getString("id"), it.optString("title").takeUnless { value -> value == "null" }.orEmpty(), it.getString("url"), it.optJSONArray("tags")?.strings().orEmpty())
         }
     }
 
-    suspend fun tagSuggestions(connection: Connection, query: String): List<String> {
+    suspend fun tagSuggestions(connection: ServerConfiguration, query: String): List<String> {
         val result = request(connection.server, "api/v1/core/tags/autocomplete/", connection.token, query = mapOf("q" to query))
         return normalizeTags(result.getJSONArray("tags").objects().map { it.getString("name") })
     }
 
-    suspend fun personas(connection: Connection): List<Persona> {
-        val result = mutableListOf<Persona>()
+    suspend fun personas(connection: ServerConfiguration): List<ServerPersona> {
+        val result = mutableListOf<ServerPersona>()
         while (true) {
             val page = request(connection.server, "api/v1/personas/personas", connection.token, query = mapOf("offset" to result.size.toString()))
             val items = page.getJSONArray("items").objects()
-            result += items.map { Persona(it.getString("id"), it.getString("name")) }
+            result += items.map { ServerPersona(it.getString("id"), it.getString("name")) }
             if (result.size >= page.getInt("total_items")) return result
             check(items.isNotEmpty()) { "Server returned an incomplete persona list." }
         }
     }
 
-    suspend fun submit(connection: Connection, urls: List<String>): Receipt {
+    suspend fun submit(connection: ServerConfiguration, urls: List<String>): SubmissionReceipt {
         require(urls.isNotEmpty() && urls.all { extractUrls(it) == listOf(it) }) { "Add at least one HTTP or HTTPS URL." }
-        require(personas(connection).any { it.name == connection.persona }) { "The selected persona is unavailable. Choose one in Add URLs." }
+        require(personas(connection).any { it.name == (connection.persona ?: "Default") }) { "The selected persona is unavailable. Choose one in Add URLs." }
         val result = request(connection.server, "api/v1/cli/add", connection.token,
-            JSONObject().put("urls", JSONArray(urls)).put("persona", connection.persona).put("depth", 0))
+            JSONObject().put("urls", JSONArray(urls)).put("persona", connection.persona ?: "Default").put("depth", 0))
         require(result.optBoolean("success") && (result.optJSONArray("errors")?.length() ?: 0) == 0) { "Server did not confirm submission. Check your archive before trying again." }
         val receipt = result.getJSONObject("result")
         val id = receipt.getString("crawl_id")
         val queued = receipt.getJSONArray("queued_urls").strings()
         require(validId(id) && queued.containsAll(urls)) { "Server did not confirm the queued URLs." }
-        return Receipt(id, queued)
+        return SubmissionReceipt(connection.id, id, queued)
     }
 
-    suspend fun updateTags(connection: Connection, receipt: Receipt, tags: List<String>) {
-        require(validId(receipt.crawlId))
+    suspend fun updateTags(connection: ServerConfiguration, receipt: SubmissionReceipt, tags: List<String>) {
+        require(receipt.server_id == connection.id && validId(receipt.crawl_id))
         val normalized = normalizeTags(tags)
-        val result = request(connection.server, "api/v1/crawls/crawl/${receipt.crawlId}", connection.token,
+        val result = request(connection.server, "api/v1/crawls/crawl/${receipt.crawl_id}", connection.token,
             JSONObject().put("tags", JSONArray(normalized)), "PATCH")
-        require(result.getString("id") == receipt.crawlId &&
+        require(result.getString("id") == receipt.crawl_id &&
             normalizeTags(listOf(result.getString("tags_str"))).map(String::lowercase).toSet() == normalized.map(String::lowercase).toSet()) { "Server did not confirm the tag update." }
     }
 
-    suspend fun removeSubmission(connection: Connection, receipt: Receipt) {
-        require(validId(receipt.crawlId))
-        val result = request(connection.server, "api/v1/crawls/crawl/${receipt.crawlId}", connection.token, method = "DELETE")
-        require(result.optBoolean("success") && result.getString("crawl_id") == receipt.crawlId) { "Server did not confirm removal." }
+    suspend fun removeSubmission(connection: ServerConfiguration, receipt: SubmissionReceipt) {
+        require(receipt.server_id == connection.id && validId(receipt.crawl_id))
+        val result = request(connection.server, "api/v1/crawls/crawl/${receipt.crawl_id}", connection.token, method = "DELETE")
+        require(result.optBoolean("success") && result.getString("crawl_id") == receipt.crawl_id) { "Server did not confirm removal." }
     }
 
-    suspend fun browserSession(connection: Connection): BrowserSession {
+    suspend fun browserSession(connection: ServerConfiguration): BrowserSession {
         val result = request(connection.server, "api/v1/auth/browser_session", connection.token, JSONObject())
         val admin = result.getString("admin_url")
         val source = connection.server.toHttpUrl()
@@ -197,7 +198,7 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
         require(name.matches(Regex("[A-Za-z0-9_-]+")) && value.matches(Regex("[A-Za-z0-9._~+/=-]+"))) { "Invalid browser session cookie." }
         val secure = cookie.getBoolean("secure")
         require(!secure || target.isHttps) { "This browser session requires HTTPS." }
-        return BrowserSession(admin, name, value, secure)
+        return BrowserSession(admin, BrowserSession.Cookie(name, value, cookie.getDouble("expires"), secure))
     }
 
     companion object { fun validId(value: String) = value.matches(Regex("[a-fA-F0-9]{32}|[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}")) }

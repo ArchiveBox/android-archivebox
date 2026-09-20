@@ -37,7 +37,7 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
 }
 
 @SuppressLint("SetJavaScriptEnabled")
-@Composable internal fun ServerBrowser(repository: ArchiveRepository, connection: Connection, path: String) {
+@Composable internal fun ServerBrowser(repository: ArchiveRepository, connection: ServerConfiguration, path: String) {
     val context = LocalContext.current
     var browser by remember { mutableStateOf<WebView?>(null) }
     var session by remember(connection) { mutableStateOf<BrowserSession?>(null) }
@@ -55,8 +55,8 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
                 // No bearer token is ever exposed to HTML, JavaScript, browser storage, or a URL.
                 suspendCancellableCoroutine<Unit> { continuation -> cookies.removeAllCookies { if (continuation.isActive) continuation.resume(Unit) } }
                 cookies.setAcceptCookie(true)
-                val cookie = "${value.cookieName}=${value.cookieValue}; Path=/; HttpOnly; SameSite=Lax" + if (value.secure) "; Secure" else ""
-                suspendCancellableCoroutine<Unit> { continuation -> cookies.setCookie(value.adminUrl, cookie) { if (continuation.isActive) continuation.resume(Unit) } }
+                val cookie = "${value.cookie.name}=${value.cookie.value}; Path=/; HttpOnly; SameSite=Lax" + if (value.cookie.secure) "; Secure" else ""
+                suspendCancellableCoroutine<Unit> { continuation -> cookies.setCookie(value.admin_url, cookie) { if (continuation.isActive) continuation.resume(Unit) } }
             }
             session = value
         } catch (e: Exception) { error = e.message ?: "Couldn't open your server's browser session." }
@@ -71,7 +71,7 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
         session?.let { authenticated ->
             // Resolve paths structurally: an admin.* hostname must never be mistaken for /admin/.
             // Keep authenticated pages on the validated cookie host, including split-host deployments.
-            val base = URI(authenticated.adminUrl.trimEnd('/') + "/")
+            val base = URI(authenticated.admin_url.trimEnd('/') + "/")
             val destination = base.resolve(if (path.startsWith("admin/")) path.removePrefix("admin/") else "../$path").toString()
             AndroidView(
                 modifier = Modifier.weight(1f).fillMaxWidth().testTag(if (ready && error == null) "browser.ready" else "browser.loading"),
@@ -97,7 +97,7 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                                 val url = request.url.toString()
-                                if (allowedArchiveOrigin(url, connection.server, authenticated.adminUrl)) return false
+                                if (allowedArchiveOrigin(url, connection.server, authenticated.admin_url)) return false
                                 // Replay may embed external HTTP(S) content. Let the browser enforce its
                                 // same-origin policy; the administrator cookie remains host-only.
                                 if (!request.isForMainFrame && request.url.scheme in listOf("https", "http")) return false
