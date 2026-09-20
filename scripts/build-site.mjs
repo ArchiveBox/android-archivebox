@@ -13,7 +13,7 @@ const option = (name, fallback) => {
 };
 const input = path.resolve(root, option('--screenshots-dir', process.env.SCREENSHOTS_DIR || 'docs/screenshots'));
 const output = path.resolve(root, option('--output', '_site'));
-const canonical = new URL(process.env.SITE_URL || 'https://archivebox.github.io/android-archivebox/');
+const canonical = new URL(process.env.SITE_URL || 'https://android.archivebox.io/');
 if (!canonical.pathname.endsWith('/')) canonical.pathname += '/';
 const base = `/${option('--baseurl', canonical.pathname).replace(/^\/+|\/+$/g, '')}/`.replace('//', '/');
 const allowMissing = process.argv.includes('--allow-missing-screenshots') && !process.argv.includes('--require-screenshots') && !process.env.CI;
@@ -71,6 +71,7 @@ async function main() {
   await fs.writeFile(path.join(output, 'index.html'), page('ArchiveBox for Android · Your web, preserved.', landing.replace('__HERO_SCREENSHOT__', phone('home')).replace('__SHARE_SCREENSHOT__', phone('share'))));
   await fs.writeFile(path.join(output, 'screenshots', 'index.html'), page('Screenshots · ArchiveBox for Android', gallery, 'screenshots/'));
   await fs.writeFile(path.join(output, '.nojekyll'), '');
+  await fs.writeFile(path.join(output, 'CNAME'), canonical.hostname + '\n');
   await fs.writeFile(path.join(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escape(canonical)}</loc></url><url><loc>${escape(canonical)}screenshots/</loc></url></urlset>\n`);
   await fs.writeFile(path.join(output, 'build.json'), JSON.stringify({revision, generatedAt: new Date().toISOString(), screenshots: captures.length, appVersion: manifest?.appVersion || null}, null, 2) + '\n');
   console.log(`Built ${output}: ${captures.length} real screenshots${manifest ? '' : ' (unpublished local preview)'}`);

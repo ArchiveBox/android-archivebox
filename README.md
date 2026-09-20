@@ -5,18 +5,18 @@
 <p><strong>Keep the good parts of the web.</strong><br>Share a link. Add your tags. Find it again.<br>A native Android companion for your own ArchiveBox server.</p>
 <p><a href="https://github.com/ArchiveBox/android-archivebox/releases/latest/download/ArchiveBox-Android.apk"><img src="https://img.shields.io/badge/Download-Android_beta-9b2854?style=for-the-badge&amp;logo=android&amp;logoColor=white" alt="Download the Android beta APK"></a></p>
 <p><a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-blue" alt="GPL-3.0-only license"></a> <img src="https://img.shields.io/badge/Android-9%2B-3DDC84?logo=android&amp;logoColor=white" alt="Android 9 and later"> <img src="https://img.shields.io/badge/Kotlin-Jetpack_Compose-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin and Jetpack Compose"> <a href="https://github.com/ArchiveBox/android-archivebox/stargazers"><img src="https://img.shields.io/github/stars/ArchiveBox/android-archivebox?label=Star%20on%20GitHub" alt="Star on GitHub"></a></p>
-<p><a href="https://archivebox.github.io/android-archivebox/">Website</a> &nbsp; · &nbsp; <a href="#get-started">Get started</a> &nbsp; · &nbsp; <a href="https://archivebox.github.io/android-archivebox/screenshots/">Screenshots</a> &nbsp; · &nbsp; <a href="https://github.com/ArchiveBox/android-archivebox/issues">Feedback</a></p>
+<p><a href="https://android.archivebox.io/">Website</a> &nbsp; · &nbsp; <a href="#get-started">Get started</a> &nbsp; · &nbsp; <a href="https://android.archivebox.io/screenshots/">Screenshots</a> &nbsp; · &nbsp; <a href="https://github.com/ArchiveBox/android-archivebox/issues">Feedback</a></p>
 <sub>Android 9+ · Requires a reachable ArchiveBox server · Google Play listing not yet available</sub>
 </div>
 
 <br>
 
 <p align="center">
-<a href="https://archivebox.github.io/android-archivebox/screenshots/#home"><img src="https://archivebox.github.io/android-archivebox/screenshots/home.png" width="28%" alt="ArchiveBox for Android: your collection and server tools"></a>
+<a href="https://android.archivebox.io/screenshots/#home"><img src="https://android.archivebox.io/screenshots/home.png" width="28%" alt="ArchiveBox for Android: your collection and server tools"></a>
 &nbsp;
-<a href="https://archivebox.github.io/android-archivebox/screenshots/#share"><img src="https://archivebox.github.io/android-archivebox/screenshots/share.png" width="28%" alt="ArchiveBox share sheet: save a URL with tags"></a>
+<a href="https://android.archivebox.io/screenshots/#share"><img src="https://android.archivebox.io/screenshots/share.png" width="28%" alt="ArchiveBox share sheet: save a URL with tags"></a>
 &nbsp;
-<a href="https://archivebox.github.io/android-archivebox/screenshots/#search"><img src="https://archivebox.github.io/android-archivebox/screenshots/search.png" width="28%" alt="Search your ArchiveBox collection on Android"></a>
+<a href="https://android.archivebox.io/screenshots/#search"><img src="https://android.archivebox.io/screenshots/search.png" width="28%" alt="Search your ArchiveBox collection on Android"></a>
 <br><sub>Your collection &nbsp; · &nbsp; Share and tag &nbsp; · &nbsp; Find it again<br>Captured from the Android app. Refreshed with each release.</sub>
 </p>
 
@@ -56,7 +56,7 @@ Prefer HTTPS for servers outside a trusted private network. See [privacy and con
 
 ## Screenshots that follow each release
 
-The [screenshot gallery](https://archivebox.github.io/android-archivebox/screenshots/) covers every major flow: setup, connections, discovery, library, search, snapshots, adding URLs, tags, sharing, save confirmation, activity, settings, the home-screen widget, and every collection and administration page.
+The [screenshot gallery](https://android.archivebox.io/screenshots/) covers every major flow: setup, connections, discovery, library, search, snapshots, adding URLs, tags, sharing, save confirmation, activity, settings, the home-screen widget, and every collection and administration page.
 
 Release automation captures the running Android app and rebuilds the GitHub Pages gallery from that capture set. Images carry their app version, commit, device, dimensions, and checksums in a downloadable manifest. The site build refuses incomplete or stale release captures. The README screenshot strip uses the same published images, so it updates alongside the gallery.
 

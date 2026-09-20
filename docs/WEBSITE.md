@@ -1,6 +1,6 @@
 # Website and screenshot gallery
 
-The static site shares ArchiveBox's navigation/footer style with the Apple and Electron app sites. It uses local assets, system fonts, semantic HTML, and responsive CSS. The default canonical URL is `https://archivebox.github.io/android-archivebox/`; a custom domain is not assumed.
+The static site shares ArchiveBox's navigation/footer style with the Apple and Electron app sites. It uses local assets, system fonts, semantic HTML, and responsive CSS. The default canonical URL is `https://android.archivebox.io/`; GitHub Pages serves it from the custom domain configured in Cloudflare.
 
 ## Local preview
 

@@ -4,7 +4,7 @@ Every push to `main` runs one serialized workflow: resolve the version → compi
 
 ## Repository configuration
 
-The public `ArchiveBox/android-archivebox` repository has been created, GitHub Pages is configured at [archivebox.github.io/android-archivebox](https://archivebox.github.io/android-archivebox/), and all four permanent release-signing secrets below are installed. Publication still depends on the workflow passing its build, device, and screenshot checks. Google Play publication is separate.
+The public `ArchiveBox/android-archivebox` repository has been created, GitHub Pages is configured at [android.archivebox.io](https://android.archivebox.io/), and all four permanent release-signing secrets below are installed. Publication still depends on the workflow passing its build, device, and screenshot checks. Google Play publication is separate.
 
 For maintainers restoring this setup or configuring a fork:
 
