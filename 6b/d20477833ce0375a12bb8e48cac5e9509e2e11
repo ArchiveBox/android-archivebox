@@ -1,0 +1,22 @@
+app/src/main/java/io/archivebox/app/data/ArchiveApi.kt
+  h_923c208e183a7b 38
+app/src/main/java/io/archivebox/app/data/Discovery.kt
+  h_923c208e183a7b 77-78,80,103
+app/src/main/java/io/archivebox/app/ui/ConnectionSettings.kt
+  h_923c208e183a7b 123,137
+app/src/main/java/io/archivebox/app/ui/SetupGuide.kt
+  h_923c208e183a7b 81-83,89-90,107
+app/src/test/java/io/archivebox/app/data/AddressTest.kt
+  h_923c208e183a7b 8-10,13,36,47-48,51,53,55-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6bd20477833ce0375a12bb8e48cac5e9509e2e11",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
