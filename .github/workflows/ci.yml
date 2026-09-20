@@ -102,8 +102,12 @@ jobs:
         run: |
           sdk_tools=$(dirname "$(dirname "$(command -v sdkmanager)")")
           grep -Eq '^Pkg.Revision=22\.' "$sdk_tools/source.properties"
-          mv "$ANDROID_HOME/cmdline-tools/latest" "$RUNNER_TEMP/android-cmdline-tools-preinstalled"
-          mv "$sdk_tools" "$ANDROID_HOME/cmdline-tools/latest"
+          if [[ "$sdk_tools" != "$ANDROID_HOME/cmdline-tools/latest" ]]; then
+            if [[ -e "$ANDROID_HOME/cmdline-tools/latest" ]]; then
+              mv "$ANDROID_HOME/cmdline-tools/latest" "$RUNNER_TEMP/android-cmdline-tools-preinstalled"
+            fi
+            mv "$sdk_tools" "$ANDROID_HOME/cmdline-tools/latest"
+          fi
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
       - name: Enable hardware virtualization
         run: |
