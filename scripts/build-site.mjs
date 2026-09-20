@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repo = 'https://github.com/ArchiveBox/android-archivebox';
@@ -20,12 +21,14 @@ const allowMissing = process.argv.includes('--allow-missing-screenshots') && !pr
 const required = ['onboarding', 'connections', 'discovery', 'library', 'search', 'snapshot', 'add', 'tags', 'share', 'share-saved', 'activity', 'settings', 'server-browser', 'home', 'crawls', 'scheduled-crawls', 'archive-results', 'server-tags', 'ai-agent', 'users', 'personas', 'api-keys', 'webhooks', 'processes', 'machines', 'network-interfaces', 'binaries', 'plugins', 'workers', 'logs', 'widget'];
 const escape = value => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 
-async function loadCaptures() {
+async function loadCaptures(captureRun) {
   let manifest;
   try { manifest = JSON.parse(await fs.readFile(path.join(input, 'manifest.json'), 'utf8')); }
-  catch (error) { if (error.code === 'ENOENT' && allowMissing) return null; throw error; }
+  catch (error) { if (error.code === 'ENOENT' && (allowMissing || (captureRun?.pending === true && !process.argv.includes('--require-screenshots')))) return null; throw error; }
   if (manifest.schemaVersion !== 1 || !/^[a-f0-9]{40}$/.test(manifest.commit) || !manifest.appVersion || !manifest.device || !Number.isFinite(Date.parse(manifest.generatedAt)) || !Array.isArray(manifest.screenshots)) throw new Error('Screenshot manifest is missing capture provenance');
-  if (process.env.GITHUB_SHA && manifest.commit !== process.env.GITHUB_SHA) throw new Error('Screenshots do not match the current commit');
+  const expectedCommit = captureRun?.commit || process.env.GITHUB_SHA;
+  if (expectedCommit && manifest.commit !== expectedCommit) throw new Error('Screenshots do not match the current commit');
+  if (captureRun && (captureRun.pending || manifest.workflowRun?.url !== captureRun.runURL)) throw new Error('Screenshots do not match the verified capture run');
   if (process.env.RELEASE_VERSION && manifest.appVersion !== process.env.RELEASE_VERSION) throw new Error('Screenshots do not match the release version');
   if (manifest.workflowRun?.url && !/^https:\/\/github\.com\/ArchiveBox\/android-archivebox\/actions\/runs\/\d+$/.test(manifest.workflowRun.url)) throw new Error('Unexpected capture workflow URL');
   const ids = new Set();
@@ -41,9 +44,12 @@ async function loadCaptures() {
 
 async function main() {
   if (output === root || root.startsWith(output + path.sep) || output === input || input.startsWith(output + path.sep) || ['docs', 'app', 'scripts', 'gradle', '.git'].some(directory => output === path.join(root, directory) || output.startsWith(path.join(root, directory) + path.sep))) throw new Error('Choose a separate build output directory');
-  const manifest = await loadCaptures();
+  const captureRunPath = option('--capture-run', null);
+  const captureRun = captureRunPath ? JSON.parse(await fs.readFile(path.resolve(root, captureRunPath), 'utf8')) : null;
+  if (captureRun && captureRun.pending !== true && (!/^[a-f0-9]{40}$/.test(captureRun.commit) || !/^https:\/\/github\.com\/ArchiveBox\/android-archivebox\/actions\/runs\/[1-9]\d*$/.test(captureRun.runURL))) throw new Error('Invalid restored capture run metadata');
+  const manifest = await loadCaptures(captureRun);
   const captures = manifest?.screenshots || [];
-  const revision = manifest?.commit || 'local-preview';
+  const revision = execFileSync('git', ['rev-parse', 'HEAD'], {cwd: root, encoding: 'utf8'}).trim();
   const [header, footer, landing] = await Promise.all(['header.html', 'footer.html', 'index.html'].map(file => fs.readFile(path.join(root, 'docs', file), 'utf8')));
   const description = 'Save the web you want to keep. Share links with tags, search your archive, and connect to your own ArchiveBox server from Android.';
   const page = (title, content, route = '') => `<!doctype html>
@@ -73,7 +79,7 @@ async function main() {
   await fs.writeFile(path.join(output, '.nojekyll'), '');
   await fs.writeFile(path.join(output, 'CNAME'), canonical.hostname + '\n');
   await fs.writeFile(path.join(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escape(canonical)}</loc></url><url><loc>${escape(canonical)}screenshots/</loc></url></urlset>\n`);
-  await fs.writeFile(path.join(output, 'build.json'), JSON.stringify({revision, generatedAt: new Date().toISOString(), screenshots: captures.length, appVersion: manifest?.appVersion || null}, null, 2) + '\n');
-  console.log(`Built ${output}: ${captures.length} real screenshots${manifest ? '' : ' (unpublished local preview)'}`);
+  await fs.writeFile(path.join(output, 'build.json'), JSON.stringify({revision, captureRevision: manifest?.commit || null, generatedAt: new Date().toISOString(), screenshots: captures.length, appVersion: manifest?.appVersion || null}, null, 2) + '\n');
+  console.log(`Built ${output}: ${captures.length} real screenshots${manifest ? '' : ' (gallery pending)'}`);
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; });

@@ -130,9 +130,12 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.version.outputs.name }}
         run: node scripts/build-site.mjs --screenshots-dir artifacts/screenshots --require-screenshots
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          path: _site
+          name: site-screenshots
+          path: artifacts/screenshots
+          if-no-files-found: error
+          retention-days: 90
 
   release:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -204,19 +207,3 @@ jobs:
       - name: Remove private signing material
         if: always()
         run: rm -f "$ANDROID_KEYSTORE_PATH"
-
-  pages:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: [site, release]
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-      contents: read
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/configure-pages@v5
-      - uses: actions/deploy-pages@v4
-        id: deployment

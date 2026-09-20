@@ -13,6 +13,12 @@ npx --yes serve _site
 
 The explicit local-preview flag permits an empty gallery before real captures exist. It displays an honest pending-capture message, not simulated screens. It is disabled in CI.
 
+## Independent website publication
+
+`pages.yml` builds on pushes, pull requests, manual dispatch, and successful completion of the app CI workflow. Marketing edits publish alongside app CI without waiting for it. The website restores the latest verified `site-screenshots` artifact from successful main CI, or the published gallery after artifact retention expires. The first publication can show an explicit pending-gallery message when no published manifest exists; malformed captures and download failures still fail the build.
+
+The restore helper records the original capture run in `capture-run.json`. The website checks images against that run while `build.json` records the current site revision separately from `captureRevision`. The original release site check still requires complete captures matching its own revision and version. Deployments serialize restoration, building, and publication, and skip source revisions superseded on main.
+
 ## Release build
 
 ```sh

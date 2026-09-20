@@ -1,6 +1,6 @@
 # Releases, signing, and screenshots
 
-Every push to `main` runs one serialized workflow: resolve the version → compile/lint/test → run an Android emulator against a real ArchiveBox server → validate every gallery image → build a signed APK and AAB → publish a GitHub release → deploy GitHub Pages. Pull requests run the same verification and screenshot capture without access to signing secrets or publishing permissions. Failed tests, missing captures, and signing failures block publication.
+Every push to `main` runs one serialized workflow: resolve the version → compile/lint/test → run an Android emulator against a real ArchiveBox server → validate every gallery image → build a signed APK and AAB → publish a GitHub release. Pull requests run the same verification and screenshot capture without access to signing secrets or publishing permissions. Failed tests, missing captures, and signing failures block release publication. A separate `pages.yml` workflow publishes website edits immediately with the last verified gallery, then refreshes it after successful app CI; see [Website](WEBSITE.md).
 
 ## Repository configuration
 
