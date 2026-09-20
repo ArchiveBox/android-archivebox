@@ -19,10 +19,10 @@ import socket, sys
 with socket.socket() as sock:
     sock.bind(('127.0.0.1', int(sys.argv[1])))
 PY
-git -C "$backend" rev-parse HEAD > "$data/backend-revision"
 cd "$data"
 abx() { uv run --no-sync --project "$backend" archivebox "$@"; }
 abx init --quick
+git -C "$backend" rev-parse HEAD > "$data/backend-revision"
 # User creation uses the supported Django command; authentication below uses the public API.
 export DJANGO_SUPERUSER_USERNAME="$SCREENSHOT_USERNAME"
 export DJANGO_SUPERUSER_PASSWORD="$SCREENSHOT_PASSWORD"
@@ -73,6 +73,8 @@ uv run --no-sync --project "$backend" python - <<'PY'
 import json, os, pathlib, urllib.request
 root = pathlib.Path(os.environ['SCREENSHOT_DATA'])
 base = os.environ['BASE_URL']
+images = list(root.glob('archive/**/screenshot/screenshot.png'))
+assert len(images) == 2 and all(image.stat().st_size > 0 for image in images), 'Real Chrome screenshots are missing'
 body = json.dumps({'username': os.environ['SCREENSHOT_USERNAME'], 'password': os.environ['SCREENSHOT_PASSWORD']}).encode()
 request = urllib.request.Request(base + '/api/v1/auth/get_api_token', body, {'Content-Type': 'application/json'})
 with urllib.request.urlopen(request, timeout=15) as response:

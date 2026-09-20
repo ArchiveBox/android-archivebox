@@ -23,7 +23,7 @@ adb install -r "$test_apk"
 api_token=$(cat "$server/api-token")
 if [[ "${GITHUB_ACTIONS:-}" == true ]]; then printf '::add-mask::%s\n' "$api_token"; fi
 adb shell am instrument -w -r \
-    -e class io.archivebox.app.ArchiveBoxJourneyTest \
+    -e class io.archivebox.app.ArchiveBoxJourneyTest,io.archivebox.app.WidgetJourneyTest \
     -e serverUrl http://127.0.0.1:5759 \
     -e apiToken "$api_token" \
     io.archivebox.app.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/instrumentation.log
@@ -87,7 +87,7 @@ for identifier, (title, description) in labels.items():
                       width=width, height=height, sha256=hashlib.sha256(data).hexdigest()))
 manifest = dict(schemaVersion=1, commit=os.environ['CAPTURE_COMMIT'], appVersion=metadata['appVersion'],
                 generatedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(), device=metadata['device'],
-                backend=os.environ.get('BACKEND_REVISION', 'local ArchiveBox checkout'), screenshots=shots)
+                backend=os.environ.get('BACKEND_REVISION', 'local ArchiveBox checkout'), requiredScreenshots=list(labels), screenshots=shots)
 if os.environ.get('GITHUB_RUN_ID'):
     manifest['workflowRun'] = {'url': f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"}
 (root / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')

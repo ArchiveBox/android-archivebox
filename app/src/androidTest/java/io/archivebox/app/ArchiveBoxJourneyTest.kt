@@ -4,7 +4,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
@@ -23,7 +23,7 @@ import java.net.URLEncoder
 /** End-to-end acceptance against a real, disposable ArchiveBox collection. */
 @RunWith(AndroidJUnit4::class)
 class ArchiveBoxJourneyTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val compose = createEmptyComposeRule()
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val arguments get() = InstrumentationRegistry.getArguments()
     private val device get() = UiDevice.getInstance(instrumentation)
@@ -73,26 +73,6 @@ class ArchiveBoxJourneyTest {
         assertFalse("Server routes must authenticate, not render a login form", device.hasObject(By.text("Log in")))
         assertFalse("Server routes must not show a 404 page", device.hasObject(By.text("Not Found")))
     }
-    private fun captureWidget() {
-        device.pressHome()
-        val launcher = device.launcherPackageName
-        val widgetSearch = By.res("io.archivebox.app", "widget_search")
-        if (!device.hasObject(widgetSearch)) {
-            requireNotNull(device.wait(Until.findObject(By.res(launcher, "workspace")), 5_000)).longClick()
-            requireNotNull(device.wait(Until.findObject(By.text("Widgets")), 5_000)).click()
-            requireNotNull(device.wait(Until.findObject(By.desc("Browse widgets")), 5_000)).click()
-            requireNotNull(device.wait(Until.findObject(By.text("ArchiveBox")), 5_000)).click()
-            requireNotNull(device.wait(Until.findObject(By.res("com.android.launcher3.widgetpicker", "widget_preview")), 5_000)).click()
-            requireNotNull(device.wait(Until.findObject(By.desc("Add ArchiveBox widget")), 5_000)).click()
-        }
-        requireNotNull(device.wait(Until.findObject(widgetSearch), 5_000))
-        shot("widget", composeIdle = false)
-        device.findObject(widgetSearch).click()
-        await("search.query")
-        device.pressHome()
-        requireNotNull(device.wait(Until.findObject(By.res("io.archivebox.app", "widget_add")), 5_000)).click()
-        await("share.sheet")
-    }
     private fun snapshots(search: String): List<JSONObject> {
         val query = URLEncoder.encode(search, "UTF-8")
         val connection = URL("${server.trimEnd('/')}/api/v1/core/snapshots?search=$query").openConnection() as HttpURLConnection
@@ -107,6 +87,9 @@ class ArchiveBoxJourneyTest {
     }
 
     @Test fun realServerJourneyAndEveryMajorScreen() {
+        instrumentation.targetContext.startActivity(requireNotNull(instrumentation.targetContext.packageManager
+            .getLaunchIntentForPackage("io.archivebox.app")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        assertTrue("The launcher must open onboarding", device.wait(Until.hasObject(By.text("I already have a server")), 5_000))
         await("setup.connect")
         shot("onboarding")
         click("setup.docker", scroll = true)
@@ -163,7 +146,7 @@ class ArchiveBoxJourneyTest {
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, sharedUrl)
-            setClass(instrumentation.targetContext, MainActivity::class.java)
+            setPackage("io.archivebox.app")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         instrumentation.targetContext.startActivity(shareIntent)
@@ -236,7 +219,6 @@ class ArchiveBoxJourneyTest {
         fill("connection.token", token)
         click("connection.save", scroll = true)
         await("connection.status")
-        captureWidget()
 
         File(output, "device.json").writeText(JSONObject().put("appVersion", BuildConfig.VERSION_NAME)
             .put("device", "${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})").toString())

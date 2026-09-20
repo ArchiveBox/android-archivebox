@@ -18,7 +18,7 @@ const canonical = new URL(process.env.SITE_URL || 'https://android.archivebox.io
 if (!canonical.pathname.endsWith('/')) canonical.pathname += '/';
 const base = `/${option('--baseurl', canonical.pathname).replace(/^\/+|\/+$/g, '')}/`.replace('//', '/');
 const allowMissing = process.argv.includes('--allow-missing-screenshots') && !process.argv.includes('--require-screenshots') && !process.env.CI;
-const required = ['onboarding', 'connections', 'discovery', 'library', 'search', 'snapshot', 'add', 'tags', 'share', 'share-saved', 'activity', 'settings', 'server-browser', 'home', 'crawls', 'scheduled-crawls', 'archive-results', 'server-tags', 'ai-agent', 'users', 'personas', 'api-keys', 'webhooks', 'processes', 'machines', 'network-interfaces', 'binaries', 'plugins', 'workers', 'logs', 'widget'];
+const required = ['onboarding', 'setup-docker', 'connections', 'discovery', 'library', 'search', 'snapshot', 'add', 'tags', 'share', 'share-saved', 'activity', 'settings', 'server-browser', 'home', 'crawls', 'scheduled-crawls', 'archive-results', 'server-tags', 'ai-agent', 'users', 'personas', 'api-keys', 'webhooks', 'processes', 'machines', 'network-interfaces', 'binaries', 'plugins', 'workers', 'logs', 'widget'];
 const escape = value => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 
 async function loadCaptures(captureRun) {
