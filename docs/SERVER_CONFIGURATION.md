@@ -28,6 +28,8 @@ Before reading or writing current state, the extension migrates published storag
 
 Only an explicit matching submission destination associates old remote IDs with a profile. Unattributed history is retained as `unassigned_remote_copy` and prevents automatic local cleanup. Published submission timestamps do not prove that uploads finished, so migrated receipts begin as `accepted`; a successful new sync establishes `complete`. No local ID is promoted to a server ID. Existing cookie-sync consent transfers only to the same server origin and local persona; changing a destination never grants consent. Unmatched legacy connection/consent data remains available for recovery and is not used for requests.
 
+The extension also retains the published legacy `/add/` protocol. Its browser-only `LegacySubmissionReceipt` has `legacy: true` and a nullable `crawl_id`: HTML confirmation cannot manufacture a server ID. These copies remain `accepted`, and local cleanup cannot treat them as complete. Native API receipts remain strict. Creating a new local capture invalidates completion for every copy whose upload policy requests that capture; failed uploads retain local bytes.
+
 ## Next version
 
 The registry and explicit operation boundaries are groundwork. Current interfaces still use one destination at a time (the first submission default); multi-server selectors, fan-out, badges, and independent per-server progress are not implemented yet. Keep immediate submission on opening Share/the popup. Each future badge should save to its server or issue a best-effort deletion when tapped; do not add cancellation or rollback orchestration.

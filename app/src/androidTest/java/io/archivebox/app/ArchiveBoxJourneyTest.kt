@@ -5,6 +5,12 @@ import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.test.espresso.web.assertion.WebViewAssertions.webMatches
+import androidx.test.espresso.web.model.Atoms
+import androidx.test.espresso.web.sugar.Web.onWebView
+import androidx.test.espresso.web.webdriver.DriverAtoms.findElement
+import androidx.test.espresso.web.webdriver.DriverAtoms.getText
+import androidx.test.espresso.web.webdriver.Locator
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
@@ -15,6 +21,8 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.hamcrest.Matchers.containsString
+import org.hamcrest.Matchers.equalTo
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -23,6 +31,20 @@ import java.net.URLEncoder
 /** End-to-end acceptance against a real, disposable ArchiveBox collection. */
 @RunWith(AndroidJUnit4::class)
 class ArchiveBoxJourneyTest {
+    private companion object {
+        const val PROVIDER_SETUP_TEXT = "Set up your preferred model provider first"
+        val providerPromptVisible = Atoms.script(
+            """function(element) {
+                var style = window.getComputedStyle(element);
+                var rect = element.getBoundingClientRect();
+                var visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+                return style.display !== 'none' && style.visibility !== 'hidden' &&
+                    rect.width > 0 && visibleHeight * window.devicePixelRatio > 30
+                    ? 'visible' : 'hidden';
+            }""",
+            Atoms.castOrDie(String::class.java),
+        )
+    }
     @get:Rule val compose = createEmptyComposeRule()
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val arguments get() = InstrumentationRegistry.getArguments()
@@ -222,10 +244,19 @@ class ArchiveBoxJourneyTest {
         for ((name, id) in routes) {
             route(name)
             if (id == "ai-agent") {
-                val providerSetup = device.wait(Until.findObject(By.text("Set up your preferred model provider first")), 10_000)
-                if (providerSetup == null) { shot("failure"); device.dumpWindowHierarchy(File(output, "failure.xml")) }
-                assertNotNull("The real AI provider setup must render", providerSetup)
-                assertTrue("AI setup must have a readable viewport", providerSetup!!.visibleBounds.height() > 30)
+                // The provider prompt is HTML inside the authenticated WebView. UiAutomator
+                // exposes only the outer WebView node, so By.text() cannot observe this DOM.
+                // Espresso-Web evaluates the actual rendered document without adding product
+                // test hooks or accepting a screenshot-only assertion.
+                val providerPrompt = findElement(
+                    Locator.XPATH,
+                    "//*[contains(normalize-space(.), '$PROVIDER_SETUP_TEXT') and " +
+                        "not(.//*[contains(normalize-space(.), '$PROVIDER_SETUP_TEXT')])]",
+                )
+                onWebView()
+                    .withElement(providerPrompt)
+                    .check(webMatches(getText(), containsString(PROVIDER_SETUP_TEXT)))
+                    .check(webMatches(providerPromptVisible, equalTo("visible")))
             }
             shot(id)
         }
