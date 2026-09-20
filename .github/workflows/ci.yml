@@ -120,6 +120,7 @@ jobs:
             artifacts/instrumentation.log
             artifacts/logcat.txt
             artifacts/failed-screenshots/
+            artifacts/emulator-diagnostics/
             ${{ runner.temp }}/archivebox-capture/server.log
 
   site:

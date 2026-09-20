@@ -1,10 +1,24 @@
 #!/usr/bin/env bash
 # Run the real UI suite against the prepared server, then export its device captures.
-set -euo pipefail
+set -Eeuo pipefail
 server=${1:?Usage: capture-screenshots.sh SERVER_DATA SCREENSHOTS_DIR [APK_DIR]}
 output=${2:?A screenshot output directory is required}
 apks=${3:-app/build/outputs/apk}
 mkdir -p "$output" artifacts
+collect_diagnostics() {
+    mkdir -p artifacts/emulator-diagnostics
+    adb logcat -b all -d > artifacts/logcat.txt 2>&1 || true
+    adb shell dumpsys meminfo > artifacts/emulator-diagnostics/memory.txt 2>&1 || true
+    adb shell getprop > artifacts/emulator-diagnostics/properties.txt 2>&1 || true
+    adb shell df -h /data > artifacts/emulator-diagnostics/storage.txt 2>&1 || true
+    adb exec-out screencap -p > artifacts/emulator-diagnostics/screen.png || true
+}
+on_error() {
+    local failure_status=$?
+    collect_diagnostics
+    exit "$failure_status"
+}
+trap on_error ERR
 curl --fail --silent --show-error --max-time 10 "$(cat "$server/server-url")/api/v1/openapi.json" > /dev/null
 export BACKEND_REVISION
 BACKEND_REVISION=$(cat "$server/backend-revision")
@@ -18,8 +32,9 @@ test_apk=$(find "$apks" -name '*androidTest.apk' -print -quit)
 if adb shell pm list packages io.archivebox.app | grep -q '^package:io.archivebox.app$'; then
     adb uninstall io.archivebox.app
 fi
-adb install "$main_apk"
-adb install -r "$test_apk"
+# Push APKs before invoking PackageManager: avoid its streamed-install pipe on API 37.
+adb install --no-streaming "$main_apk"
+adb install --no-streaming -r "$test_apk"
 # Preserve real failures: instrumentation exit status alone does not report failed tests.
 api_token=$(cat "$server/api-token")
 if [[ "${GITHUB_ACTIONS:-}" == true ]]; then printf '::add-mask::%s\n' "$api_token"; fi
