@@ -1,0 +1,14 @@
+.github/workflows/ci.yml
+  h_923c208e183a7b 105-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "48ba613d2171b1e16fcc92c61553d3a02c5f89af",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
