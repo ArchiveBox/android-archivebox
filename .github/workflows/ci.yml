@@ -124,9 +124,8 @@ jobs:
           # The API 37 image otherwise kills foreground processes during initial boot.
           ram-size: 4096M
           disk-size: 4096M
-          # API 37's mapper rejects DMA readback. GLDirectMem is already off on Apple Silicon;
-          # disable that host-memory optimization on Linux too, retaining real GPU rendering.
-          emulator-options: -no-window -gpu swiftshader -feature -GLDirectMem -no-snapshot -noaudio -no-boot-anim -no-metrics
+          # Correct API metadata enables the DMA readback required by Android 37's mapper.
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
           pre-emulator-launch-script: grep -Fx 'target=android-37.0' "$HOME/.android/avd/test.ini"
           script: bash scripts/capture-screenshots.sh "$RUNNER_TEMP/archivebox-capture" artifacts/screenshots artifacts/apks
