@@ -76,6 +76,25 @@ import kotlinx.coroutines.launch
             }
         }
     }
+    fun scan() {
+        if (scanning) return
+        withNetworkPermission {
+            scope.launch {
+                scanning = true; found = emptyList(); error = null
+                try {
+                    Discovery(context, repository.api).scan(listOf(hints)) { candidate ->
+                        if (found.none { it.url == candidate.url }) found = found + candidate
+                    }
+                    if (found.isEmpty()) status = "No ArchiveBox servers found. Enter an address above, or add a tailnet hostname and scan again."
+                } catch (e: Exception) { error = e.message ?: "Discovery failed." }
+                finally { scanning = false }
+            }
+        }
+    }
+    LaunchedEffect(Unit) {
+        // No surprise permission dialog on entry; automatic discovery begins if access is available.
+        if (Build.VERSION.SDK_INT < 37 || context.checkSelfPermission("android.permission.ACCESS_LOCAL_NETWORK") == PackageManager.PERMISSION_GRANTED) scan()
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(24.dp)) {
             Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -97,22 +116,9 @@ import kotlinx.coroutines.launch
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SectionTitle("Find a nearby server")
-        Text("Discover ArchiveBox on port 5759. Keep your VPN connected to include reachable tailnet peers.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(hints, { hints = it }, label = { Text("Extra hostnames or tailnet addresses") }, placeholder = { Text("archivebox.tailnet-name.ts.net") }, supportingText = { Text("Optional · separate multiple addresses with commas") }, modifier = Modifier.fillMaxWidth().testTag("connection.hints"))
-        OutlinedButton(onClick = {
-            withNetworkPermission {
-                scope.launch {
-                    scanning = true; found = emptyList(); error = null; status = null
-                    try {
-                        Discovery(context, repository.api).scan(hints.split(',', '\n').map { it.trim() }.filter { it.isNotBlank() }) { candidate ->
-                            if (found.none { it.url == candidate.url }) found = found + candidate
-                        }
-                        if (found.isEmpty()) status = "No ArchiveBox servers found. Enter an address above, or add a tailnet hostname and scan again."
-                    } catch (e: Exception) { error = e.message ?: "Discovery failed." }
-                    finally { scanning = false }
-                }
-            }
-        }, enabled = !scanning, modifier = Modifier.fillMaxWidth().testTag("connection.discover")) {
+        Text("Nearby servers on port 5759 appear automatically. Android cannot read other apps' Tailscale peer lists. With your VPN connected, add peer hostnames or paste tailscale status --json output; discovered hosts are remembered for future scans.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedTextField(hints, { hints = it }, label = { Text("Tailnet hostnames or status JSON") }, placeholder = { Text("archivebox.tailnet-name.ts.net") }, supportingText = { Text("Optional · separate addresses with commas, or paste status JSON") }, maxLines = 4, modifier = Modifier.fillMaxWidth().testTag("connection.hints"))
+        OutlinedButton(onClick = { scan() }, enabled = !scanning, modifier = Modifier.fillMaxWidth().testTag("connection.discover")) {
             Icon(Icons.Outlined.Radar, null); Spacer(Modifier.width(8.dp)); Text(if (scanning) "Looking for servers…" else "Discover servers")
         }
         if (scanning) LinearProgressIndicator(Modifier.fillMaxWidth())

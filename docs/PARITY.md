@@ -14,10 +14,11 @@ This is the implementation map, not a claim that all flows have passed device ac
 | Crawls, schedules, archive results, tags | In-app server pages | Same server routes, adapted by the server for mobile |
 | Users, personas, API keys, webhooks, processes, machines, binaries, plugins, workers, logs | In-app server pages | Requires appropriate server permissions |
 | AI Agent | In-app server page | Depends on server configuration |
-| Connection discovery | Native LAN candidate checks and explicit tailnet hints on port 5759 | No complete tailnet peer enumeration |
+| Connection discovery | Native LAN checks, tailnet hostnames, and imported Tailscale status JSON on port 5759 | No complete tailnet peer enumeration |
 | Light/dark appearance and larger devices | Material 3 and adaptive navigation | Phone/tablet acceptance must be recorded separately |
 | App actions | Android share intents, deep links, launcher shortcuts | Android integration rather than Apple App Intents |
-| Siri, Spotlight, Handoff, widgets and Control Center | No direct implementation | Android equivalents beyond launcher shortcuts remain future work |
+| Home-screen widget | Native Android launcher widget | Add URLs and Search entrypoints; no private metadata or automatic submission |
+| Siri, Spotlight, Handoff, and Control Center | No direct implementation | Android equivalents beyond launcher shortcuts and the home-screen widget remain future work |
 | Safari/browser extension bundled with app | Separate ArchiveBox browser extension | Not bundled into the Android APK |
 | macOS companion running a local server | Connect to an existing remote server | Android does not run ArchiveBox Server locally |
 | Offline archive downloads or queued submissions | No offline archive or queue | Saving and browsing need a reachable server |

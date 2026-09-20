@@ -2,7 +2,11 @@
 
 Every push to `main` runs one serialized workflow: resolve the version → compile/lint/test → run an Android emulator against a real ArchiveBox server → validate every gallery image → build a signed APK and AAB → publish a GitHub release → deploy GitHub Pages. Pull requests run the same verification and screenshot capture without access to signing secrets or publishing permissions. Failed tests, missing captures, and signing failures block publication.
 
-## One-time repository setup
+## Repository configuration
+
+The public `ArchiveBox/android-archivebox` repository has been created, GitHub Pages is configured at [archivebox.github.io/android-archivebox](https://archivebox.github.io/android-archivebox/), and all four permanent release-signing secrets below are installed. Publication still depends on the workflow passing its build, device, and screenshot checks. Google Play publication is separate.
+
+For maintainers restoring this setup or configuring a fork:
 
 1. Create `ArchiveBox/android-archivebox` and push `main`.
 2. Enable GitHub Pages with **GitHub Actions** as its source. Allow the `main` branch in the `github-pages` environment.
@@ -47,4 +51,4 @@ Use a **new, empty** data directory on each run. The bootstrap creates a normal 
 
 The instrumentation journey enters credentials through Settings, receives Android intents, saves a unique URL, checks persisted server state, edits tags, and undoes the test save. Screenshots come from the real emulator screen, not previews or hand-drawn examples. API keys remain masked in captures. Capture provenance records the app commit/version, backend revision, device, dimensions, and each PNG's SHA-256. The website build checks this manifest and requires all declared screens from the same revision.
 
-The mandatory gallery covers onboarding, connection configuration, discovery, saved pages, search, an archived page, Add URLs, tags, the Android share sheet, a saved confirmation, activity, settings, and server administration. Each successful release carries the capture archive and deploys its fresh gallery.
+The mandatory gallery covers 31 screens: onboarding, home, connection configuration, discovery, saved pages, search, an archived page, Add URLs, tags, the Android share sheet, a saved confirmation, activity, settings, the home-screen widget, and every collection and administration route. Each successful release carries the capture archive and deploys its fresh gallery.

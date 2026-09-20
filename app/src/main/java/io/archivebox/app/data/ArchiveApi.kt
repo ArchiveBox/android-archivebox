@@ -14,7 +14,6 @@ import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
-import java.net.URI
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -42,7 +41,13 @@ fun normalizeServer(input: String): String {
 }
 
 fun extractUrls(text: String): List<String> = Regex("https?://[^\\s<>\\\"]+", RegexOption.IGNORE_CASE)
-    .findAll(text).map { it.value.trimEnd('.', ',', ';', '!', '?', ')', ']', '}') }
+    .findAll(text).map { match ->
+        var url = match.value.trimEnd('.', ',', ';')
+        for ((open, close) in listOf('(' to ')', '[' to ']', '{' to '}')) {
+            while (url.endsWith(close) && url.count { it == close } > url.count { it == open }) url = url.dropLast(1)
+        }
+        url
+    }
     .filter { value -> runCatching { value.toHttpUrl().let { it.username.isEmpty() && it.password.isEmpty() } }.getOrDefault(false) }
     .distinct().toList()
 
@@ -175,6 +180,8 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
         val admin = result.getString("admin_url")
         val source = connection.server.toHttpUrl()
         val target = admin.toHttpUrl()
+        require(target.username.isEmpty() && target.password.isEmpty() && target.query == null && target.fragment == null &&
+            target.encodedPath.endsWith("/admin/")) { "Server returned an invalid administrator address." }
         // ArchiveBox may separate web and admin subdomains, but cannot send session credentials to an arbitrary host.
         val baseHost = source.host.removePrefix("web.").removePrefix("admin.")
         require(target.scheme == source.scheme && target.port == source.port &&

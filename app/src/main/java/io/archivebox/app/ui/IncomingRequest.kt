@@ -19,10 +19,20 @@ data class IncomingRequest(
             if (intent.action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE, Intent.ACTION_PROCESS_TEXT)) {
                 val text = if (intent.action == Intent.ACTION_PROCESS_TEXT) {
                     intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString().orEmpty()
-                } else intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
-                    ?: intent.clipData?.let { clip ->
-                        (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).text?.toString() }.joinToString("\n")
-                    }.orEmpty()
+                } else {
+                    val values = mutableListOf<String>()
+                    if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
+                        intent.getCharSequenceArrayListExtra(Intent.EXTRA_TEXT)?.let { texts -> values += texts.map { it.toString() } }
+                    } else intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.let { values += it.toString() }
+                    intent.clipData?.let { clip ->
+                        (0 until clip.itemCount).forEach { index ->
+                            val item = clip.getItemAt(index)
+                            item.text?.let { values += it.toString() }
+                            item.uri?.takeIf { it.scheme in listOf("http", "https") }?.let { values += it.toString() }
+                        }
+                    }
+                    values.distinct().joinToString("\n")
+                }
                 return IncomingRequest("add", text.take(200_000), externalShare = true)
             }
             if (intent.action == Intent.ACTION_SEARCH) return IncomingRequest("search", intent.getStringExtra("query").orEmpty())

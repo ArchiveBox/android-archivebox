@@ -44,8 +44,8 @@ class ArchiveBoxJourneyTest {
         await(tag)
         node(tag).performScrollTo().performTextReplacement(text)
     }
-    private fun shot(id: String) {
-        compose.waitForIdle()
+    private fun shot(id: String, composeIdle: Boolean = true) {
+        if (composeIdle) compose.waitForIdle()
         device.waitForIdle()
         val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot()) { "No device screenshot for $id" }
         File(output, "$id.png").outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
@@ -56,6 +56,28 @@ class ArchiveBoxJourneyTest {
         compose.onNodeWithTag("home").performScrollToNode(hasTestTag("route.$name"))
         click("route.$name")
         await("browser.ready")
+        compose.onAllNodesWithTag("error").assertCountEquals(0)
+        assertFalse("Server routes must authenticate, not render a login form", device.hasObject(By.text("Log in")))
+    }
+    private fun captureWidget() {
+        device.pressHome()
+        val launcher = device.launcherPackageName
+        val widgetSearch = By.res("io.archivebox.app", "widget_search")
+        if (!device.hasObject(widgetSearch)) {
+            requireNotNull(device.wait(Until.findObject(By.res(launcher, "workspace")), 5_000)).longClick()
+            requireNotNull(device.wait(Until.findObject(By.text("Widgets")), 5_000)).click()
+            requireNotNull(device.wait(Until.findObject(By.desc("Browse widgets")), 5_000)).click()
+            requireNotNull(device.wait(Until.findObject(By.text("ArchiveBox")), 5_000)).click()
+            requireNotNull(device.wait(Until.findObject(By.res("com.android.launcher3.widgetpicker", "widget_preview")), 5_000)).click()
+            requireNotNull(device.wait(Until.findObject(By.desc("Add ArchiveBox widget")), 5_000)).click()
+        }
+        requireNotNull(device.wait(Until.findObject(widgetSearch), 5_000))
+        shot("widget", composeIdle = false)
+        device.findObject(widgetSearch).click()
+        await("search.query")
+        device.pressHome()
+        requireNotNull(device.wait(Until.findObject(By.res("io.archivebox.app", "widget_add")), 5_000)).click()
+        await("share.sheet")
     }
     private fun snapshots(search: String): List<JSONObject> {
         val query = URLEncoder.encode(search, "UTF-8")
@@ -92,7 +114,10 @@ class ArchiveBoxJourneyTest {
         node("discovery.server").performScrollTo().assertTextContains("127.0.0.1", substring = true)
         shot("discovery")
 
+        click("tab.Archive")
+        shot("home")
         route("Snapshots")
+        assertTrue("The library must render its real page title", device.wait(Until.hasObject(By.textContains("Snapshots")), 10_000))
         shot("library")
         click("tab.Search")
         fill("search.query", "example.com")
@@ -102,6 +127,8 @@ class ArchiveBoxJourneyTest {
         shot("search")
         node("search.result.$exampleId").performClick()
         await("browser.ready")
+        compose.onAllNodesWithTag("error").assertCountEquals(0)
+        assertTrue("The snapshot must render actual archived content", device.wait(Until.hasObject(By.textContains("Example Domain")), 10_000))
         shot("snapshot")
 
         click("tab.Add")
@@ -124,6 +151,11 @@ class ArchiveBoxJourneyTest {
         fill("add.tags", "android-share, research")
         shot("share")
         click("add.save", scroll = true)
+        await("share.accepted")
+        device.setOrientationLeft()
+        await("share.accepted")
+        node("share.accepted").assertExists()
+        device.setOrientationNatural()
         await("share.accepted")
         node("share.accepted").performScrollTo()
         shot("share-saved")
@@ -158,9 +190,19 @@ class ArchiveBoxJourneyTest {
         shot("activity")
         route("Admin")
         shot("server-browser")
+        val routes = listOf(
+            "Crawls" to "crawls", "Scheduled Crawls" to "scheduled-crawls",
+            "Archive Results" to "archive-results", "Tags" to "server-tags", "AI Agent" to "ai-agent",
+            "Users" to "users", "Personas" to "personas", "API Keys" to "api-keys",
+            "Webhooks" to "webhooks", "Processes" to "processes", "Machines" to "machines",
+            "Network Interfaces" to "network-interfaces", "Binaries" to "binaries",
+            "Plugins" to "plugins", "Workers" to "workers", "Logs" to "logs",
+        )
+        for ((name, id) in routes) { route(name); shot(id) }
         click("tab.Settings")
         node("setup.reopen").performScrollTo()
         shot("settings")
+        captureWidget()
 
         File(output, "device.json").writeText(JSONObject().put("appVersion", BuildConfig.VERSION_NAME)
             .put("device", "${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})").toString())

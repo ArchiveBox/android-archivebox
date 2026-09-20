@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,10 +23,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import io.archivebox.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import io.archivebox.app.data.*
 import kotlinx.coroutines.launch
 
@@ -53,6 +58,11 @@ internal val adminRoutes = listOf(
     ServerRoute("Logs", "admin/environment/logs/", Icons.Outlined.ReceiptLong),
 )
 
+internal class NavigationState : ViewModel() {
+    val shareRequest = mutableStateOf<IncomingRequest?>(null)
+    val connectionRequest = mutableStateOf<IncomingRequest?>(null)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun ArchiveBoxApp(repository: ArchiveRepository, incoming: IncomingRequest?, onConsumed: () -> Unit, onFinishShare: () -> Unit) {
     val connection by repository.connection.collectAsStateWithLifecycle()
@@ -63,12 +73,14 @@ internal val adminRoutes = listOf(
     var browserPath by rememberSaveable { mutableStateOf<String?>(null) }
     var browserTitle by rememberSaveable { mutableStateOf("") }
     var searchText by rememberSaveable { mutableStateOf("") }
-    var shareRequest by remember { mutableStateOf<IncomingRequest?>(null) }
-    var connectionRequest by remember { mutableStateOf<IncomingRequest?>(null) }
+    val navigation: NavigationState = viewModel()
+    var shareRequest by navigation.shareRequest
+    var connectionRequest by navigation.connectionRequest
+    var preventShareDismiss by remember { mutableStateOf(false) }
     var routeError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(incoming?.nonce) {
-        incoming ?: return
-        repository.dismissSetup()@LaunchedEffect
+        incoming ?: return@LaunchedEffect
+        repository.dismissSetup()
         when (incoming.action) {
             "add" -> { shareRequest = incoming; screen = "Add" }
             "search" -> { searchText = incoming.text; screen = "Search" }
@@ -78,7 +90,7 @@ internal val adminRoutes = listOf(
                 if (c == null) { routeError = "Connect to your server before opening an archived page."; screen = "Settings" }
                 else if (incoming.server != null && runCatching { normalizeServer(incoming.server) }.getOrNull() != c.server) {
                     routeError = "This page belongs to a different server. Connect to that server in Settings first."
-                } else if (incoming.snapshot?.matches(Regex("[A-Za-z0-9-]{1,80}")) == true) {
+                } else if (incoming.snapshot?.let(ArchiveApi::validId) == true) {
                     browserPath = "snapshot/${incoming.snapshot}/index.html"; browserTitle = "Archived page"
                 } else routeError = "This archived-page link has no valid snapshot ID."
             }
@@ -126,10 +138,10 @@ internal val adminRoutes = listOf(
         }
     }
     shareRequest?.let { request ->
-        ModalBottomSheet(onDismissRequest = { shareRequest = null; if (request.externalShare) onFinishShare() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        ModalBottomSheet(onDismissRequest = { if (!preventShareDismiss) { shareRequest = null; if (request.externalShare) onFinishShare() } }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { it != SheetValue.Hidden || !preventShareDismiss })) {
             Column(Modifier.fillMaxWidth().fillMaxHeight(.91f).testTag("share.sheet")) {
                 Text("Save to ArchiveBox", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-                AddScreen(repository, connection, request.text, onConnect = { shareRequest = null; screen = "Settings" }, onDone = { shareRequest = null; if (request.externalShare) onFinishShare() })
+                AddScreen(repository, connection, request.text, onConnect = { shareRequest = null; screen = "Settings" }, onDone = { preventShareDismiss = false; shareRequest = null; if (request.externalShare) onFinishShare() }, requestId = request.nonce, onPreventDismiss = { preventShareDismiss = it })
             }
         }
     }
@@ -138,7 +150,7 @@ internal val adminRoutes = listOf(
 
 @Composable internal fun BrandMark(modifier: Modifier = Modifier, large: Boolean = false) {
     Surface(modifier.size(if (large) 84.dp else 34.dp), color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(if (large) 24.dp else 10.dp)) {
-        Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Inventory2, "ArchiveBox", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(if (large) 45.dp else 22.dp)) }
+        Image(painterResource(R.drawable.archivebox_logo), "ArchiveBox", modifier = Modifier.fillMaxSize())
     }
 }
 

@@ -175,7 +175,8 @@ jobs:
           cp app/build/outputs/bundle/release/app-release.aab artifacts/releases/ArchiveBox-Android.aab
           apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           "$apksigner" verify --verbose --print-certs artifacts/releases/ArchiveBox-Android.apk
-          jarsigner -verify artifacts/releases/ArchiveBox-Android.aab
+          jarsigner -verify artifacts/releases/ArchiveBox-Android.aab | tee artifacts/bundle-verification.txt
+          grep -q '^jar verified\.' artifacts/bundle-verification.txt
           cd artifacts/releases
           sha256sum ArchiveBox-Android.apk ArchiveBox-Android.aab > SHA256SUMS
       - uses: actions/download-artifact@v5

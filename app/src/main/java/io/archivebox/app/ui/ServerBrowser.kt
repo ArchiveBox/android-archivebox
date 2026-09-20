@@ -19,6 +19,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import io.archivebox.app.data.*
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import java.net.URI
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable internal fun ServerBrowser(repository: ArchiveRepository, connection: Connection, path: String) {
@@ -44,17 +45,16 @@ import kotlin.coroutines.resume
     }
     BackHandler(canBack) { browser?.goBack() }
     DisposableEffect(connection) {
-        onDispose { browser?.stopLoading(); browser?.destroy(); browser = null; CookieManager.getInstance().removeAllCookies(null); WebStorage.getInstance().deleteAllData() }
+        onDispose { browser?.stopLoading(); browser?.clearCache(true); browser?.clearHistory(); browser?.destroy(); browser = null; CookieManager.getInstance().removeAllCookies(null); WebStorage.getInstance().deleteAllData() }
     }
     Column(Modifier.fillMaxSize()) {
         if (!ready && error == null) LinearProgressIndicator(Modifier.fillMaxWidth())
         error?.let { message -> Column(Modifier.padding(20.dp)) { ErrorCard(message); TextButton(onClick = { reload++ }) { Text("Try again") } } }
         session?.let { authenticated ->
-            val target = if (path.startsWith("admin/")) {
-                authenticated.adminUrl.substringBefore("/admin") .trimEnd('/') + "/" + path
-            } else connection.server.trimEnd('/') + "/" + path
-            // Session cookies may be host-only on a separate admin host; archived pages use that host too.
-            val destination = if (!path.startsWith("admin/") && !sameOrigin(connection.server, authenticated.adminUrl)) authenticated.adminUrl.substringBefore("/admin").trimEnd('/') + "/" + path else target
+            // Resolve paths structurally: an admin.* hostname must never be mistaken for /admin/.
+            // Keep authenticated pages on the validated cookie host, including split-host deployments.
+            val base = URI(authenticated.adminUrl.trimEnd('/') + "/")
+            val destination = base.resolve(if (path.startsWith("admin/")) path.removePrefix("admin/") else "../$path").toString()
             AndroidView(
                 modifier = Modifier.weight(1f).fillMaxWidth().testTag(if (ready && error == null) "browser.ready" else "browser.loading"),
                 factory = { ctx ->
@@ -62,6 +62,7 @@ import kotlin.coroutines.resume
                         browser = this
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
+                        settings.cacheMode = WebSettings.LOAD_NO_CACHE
                         settings.allowFileAccess = false
                         settings.allowContentAccess = false
                         settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW

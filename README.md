@@ -11,6 +11,15 @@
 
 <br>
 
+<p align="center">
+<a href="https://archivebox.github.io/android-archivebox/screenshots/#home"><img src="https://archivebox.github.io/android-archivebox/screenshots/home.png" width="28%" alt="ArchiveBox for Android: your collection and server tools"></a>
+&nbsp;
+<a href="https://archivebox.github.io/android-archivebox/screenshots/#share"><img src="https://archivebox.github.io/android-archivebox/screenshots/share.png" width="28%" alt="ArchiveBox share sheet: save a URL with tags"></a>
+&nbsp;
+<a href="https://archivebox.github.io/android-archivebox/screenshots/#search"><img src="https://archivebox.github.io/android-archivebox/screenshots/search.png" width="28%" alt="Search your ArchiveBox collection on Android"></a>
+<br><sub>Your collection &nbsp; · &nbsp; Share and tag &nbsp; · &nbsp; Find it again<br>Captured from the Android app. Refreshed with each release.</sub>
+</p>
+
 **[ArchiveBox](https://archivebox.io/) saves copies of websites so you can revisit them after they change or disappear.** ArchiveBox for Android brings saving, search, and your collection to your phone and tablet. The server stores the archive; the app keeps it close.
 
 - 📥 **Share it. Keep it.** Send links from browsers, messages, and other apps through Android’s share menu.
@@ -35,21 +44,21 @@ The app is a client. Your server must be awake and reachable for saving, search,
 
 Share one URL or several links as text. Review them before saving, choose existing tags or create new ones, and select a persona when your server has one configured. A successful submission means the server accepted the archive request; the server may still be capturing the pages.
 
-Android intents support incoming shared text and app links. Long-press the launcher icon for quick actions. See the actual [intent filters](app/src/main/AndroidManifest.xml) and [shortcut definitions](app/src/main/res/xml/shortcuts.xml) when integrating another app.
+Android intents support incoming shared text and app links. Long-press the launcher icon for quick actions, or add the ArchiveBox home-screen widget to open Add URLs and Search with one tap. The widget displays no private archive metadata and never submits a link automatically. See the actual [intent filters](app/src/main/AndroidManifest.xml) and [shortcut definitions](app/src/main/res/xml/shortcuts.xml) when integrating another app.
 
 ## Connect nearby or over your tailnet
 
 **Connection Settings → Discover servers** checks nearby candidates on port **5759**. Discovery identifies servers; it does not send your API key to discovered addresses. Select a result, then authenticate with that server.
 
-For Tailscale, connect your Android device to your tailnet first and enter a server’s MagicDNS name or `100.x.y.z` address as a discovery hint. The app cannot retrieve a complete peer list from the separate Tailscale Android app. Only reachable candidates can be discovered, and a firewall or VPN policy can block access. You can always enter a server address directly, including a different port.
+For Tailscale, connect your Android device to your tailnet first and enter a server’s MagicDNS name or `100.x.y.z` address as a discovery hint, or paste the output of `tailscale status --json` from a computer on your tailnet. The app cannot retrieve a complete peer list from the separate Tailscale Android app. Only reachable candidates can be discovered, and a firewall or VPN policy can block access. You can always enter a server address directly, including a different port.
 
 Prefer HTTPS for servers outside a trusted private network. See [privacy and connection behavior](docs/PRIVACY.md).
 
 ## Screenshots that follow each release
 
-The [screenshot gallery](https://archivebox.github.io/android-archivebox/screenshots/) covers every major flow: setup, connections, discovery, library, search, snapshots, adding URLs, tags, sharing, save confirmation, activity, settings, and server pages.
+The [screenshot gallery](https://archivebox.github.io/android-archivebox/screenshots/) covers every major flow: setup, connections, discovery, library, search, snapshots, adding URLs, tags, sharing, save confirmation, activity, settings, the home-screen widget, and every collection and administration page.
 
-Release automation captures the running Android app and rebuilds the GitHub Pages gallery from that capture set. Images carry their app version, commit, device, dimensions, and checksums in a downloadable manifest. The site build refuses incomplete or stale release captures. No design mockups stand in for app screenshots.
+Release automation captures the running Android app and rebuilds the GitHub Pages gallery from that capture set. Images carry their app version, commit, device, dimensions, and checksums in a downloadable manifest. The site build refuses incomplete or stale release captures. The README screenshot strip uses the same published images, so it updates alongside the gallery.
 
 ## Build from source
 

@@ -17,7 +17,7 @@ const canonical = new URL(process.env.SITE_URL || 'https://archivebox.github.io/
 if (!canonical.pathname.endsWith('/')) canonical.pathname += '/';
 const base = `/${option('--baseurl', canonical.pathname).replace(/^\/+|\/+$/g, '')}/`.replace('//', '/');
 const allowMissing = process.argv.includes('--allow-missing-screenshots') && !process.argv.includes('--require-screenshots') && !process.env.CI;
-const required = ['onboarding', 'connections', 'discovery', 'library', 'search', 'snapshot', 'add', 'tags', 'share', 'share-saved', 'activity', 'settings', 'server-browser'];
+const required = ['onboarding', 'connections', 'discovery', 'library', 'search', 'snapshot', 'add', 'tags', 'share', 'share-saved', 'activity', 'settings', 'server-browser', 'home', 'crawls', 'scheduled-crawls', 'archive-results', 'server-tags', 'ai-agent', 'users', 'personas', 'api-keys', 'webhooks', 'processes', 'machines', 'network-interfaces', 'binaries', 'plugins', 'workers', 'logs', 'widget'];
 const escape = value => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 
 async function loadCaptures() {
@@ -54,13 +54,13 @@ async function main() {
     if (!capture) return `<div class="capture-placeholder"><img src="${base}assets/icon.png" width="64" height="64" alt=""><strong>Your archive.<br>Made for Android.</strong><p>Real app screenshots will appear here after the first successful release capture.</p></div>`;
     return `<figure class="phone-capture"><a href="${base}screenshots/#${capture.id}"><img src="${screenshotURL(capture)}" width="${capture.width}" height="${capture.height}" alt="${escape(capture.title)}"></a><figcaption>${escape(capture.title)} · Android</figcaption></figure>`;
   };
-  let gallery = '<section class="gallery-header"><p class="eyebrow">THE REAL APP. EVERY MAJOR FLOW.</p><h1>Take a look around.</h1><p class="lead">From your first connection to your next saved page. These screenshots come from the Android app, captured again for each release.</p></section>';
+  let gallery = '<section class="gallery-header"><p class="eyebrow">YOUR ARCHIVE, AROUND EVERY CORNER.</p><h1>Take a look around.</h1><p class="lead">From your first connection to your next saved page. Explore sharing, search, your home-screen widget, and the tools that keep your collection organized.</p></section>';
   if (manifest) {
     gallery += `<p class="provenance">App ${escape(manifest.appVersion)} · ${escape(manifest.device)} · <a href="${repo}/commit/${manifest.commit}">${manifest.commit.slice(0, 12)}</a> · <time datetime="${escape(manifest.generatedAt)}">${escape(manifest.generatedAt)}</time>${manifest.workflowRun?.url ? ` · <a href="${manifest.workflowRun.url}">Capture run ↗</a>` : ' · Local capture'} · <a href="manifest.json">Capture manifest</a>${manifest.backend ? `<br>Backend: ${escape(manifest.backend)}` : ''}</p>`;
     gallery += `<ul class="capture-index">${captures.map(capture => `<li><a href="#${capture.id}">${escape(capture.title)}</a></li>`).join('')}</ul>`;
     gallery += `<div class="gallery-grid">${captures.map(capture => `<article class="capture" id="${capture.id}"><h2>${escape(capture.title)}</h2><p>${escape(capture.description)}</p><figure><a href="${screenshotURL(capture)}"><img src="${screenshotURL(capture)}" width="${capture.width}" height="${capture.height}" alt="${escape(capture.title)} — ${escape(capture.description)}" loading="lazy"></a><figcaption>${capture.width} × ${capture.height} · <a href="${screenshotURL(capture)}">View full image ↗</a></figcaption></figure></article>`).join('')}</div>`;
-  } else gallery += `<p class="empty">The first complete capture has not been published. This local preview deliberately shows no substitute screenshots. <a href="${repo}/actions">View build progress ↗</a></p>`;
-  gallery += '<section class="coverage"><h2>A gallery that follows the app</h2><p>Every release requires captures of onboarding, connections, discovery, the library, search, snapshot details, adding URLs, tags, sharing, save confirmation, activity, settings, and server pages. Each image has a recorded size and checksum. A release site build fails if any required capture is missing or belongs to another commit.</p></section>';
+  } else gallery += `<p class="empty">The screenshot gallery will be available with the first release. <a href="${repo}/actions">View build progress ↗</a></p>`;
+  gallery += '<section class="coverage"><h2>A gallery that follows the app</h2><p>The gallery updates with each release, covering setup, saving, search, your home-screen widget, and every collection and administration page. See the capture manifest above for the app version and device shown.</p></section>';
   await fs.rm(output, {recursive: true, force: true});
   await fs.mkdir(path.join(output, 'screenshots'), {recursive: true});
   for (const file of ['assets', 'style.css', 'site-chrome.css']) await fs.cp(path.join(root, 'docs', file), path.join(output, file), {recursive: true});
@@ -68,7 +68,7 @@ async function main() {
     await fs.copyFile(path.join(input, 'manifest.json'), path.join(output, 'screenshots', 'manifest.json'));
     for (const capture of captures) await fs.copyFile(path.join(input, capture.file), path.join(output, 'screenshots', capture.file));
   }
-  await fs.writeFile(path.join(output, 'index.html'), page('ArchiveBox for Android · Your web, preserved.', landing.replace('__HERO_SCREENSHOT__', phone('library')).replace('__SHARE_SCREENSHOT__', phone('share'))));
+  await fs.writeFile(path.join(output, 'index.html'), page('ArchiveBox for Android · Your web, preserved.', landing.replace('__HERO_SCREENSHOT__', phone('home')).replace('__SHARE_SCREENSHOT__', phone('share'))));
   await fs.writeFile(path.join(output, 'screenshots', 'index.html'), page('Screenshots · ArchiveBox for Android', gallery, 'screenshots/'));
   await fs.writeFile(path.join(output, '.nojekyll'), '');
   await fs.writeFile(path.join(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escape(canonical)}</loc></url><url><loc>${escape(canonical)}screenshots/</loc></url></urlset>\n`);
