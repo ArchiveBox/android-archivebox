@@ -67,7 +67,7 @@ jobs:
         run: |
           latest=$(gh api repos/${{ github.repository }}/commits/main --jq .sha)
           echo "deploy=$([ "$latest" = "$REVISION" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
         if: steps.current.outputs.deploy == 'true'
       - uses: actions/deploy-pages@v4
         if: steps.current.outputs.deploy == 'true'
