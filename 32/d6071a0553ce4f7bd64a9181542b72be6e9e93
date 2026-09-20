@@ -1,0 +1,120 @@
+.github/dependabot.yml
+  h_923c208e183a7b 1-10
+.github/workflows/ci.yml
+  h_923c208e183a7b 1-215
+.gitignore
+  h_923c208e183a7b 1-13
+LICENSE
+  h_923c208e183a7b 1-674
+README.md
+  h_923c208e183a7b 1-79
+app/build.gradle.kts
+  h_923c208e183a7b 1-62
+app/proguard-rules.pro
+  h_923c208e183a7b 1
+app/src/androidTest/java/io/archivebox/app/ArchiveBoxJourneyTest.kt
+  h_923c208e183a7b 1-169
+app/src/main/AndroidManifest.xml
+  h_923c208e183a7b 1-40
+app/src/main/java/io/archivebox/app/ArchiveWidget.kt
+  h_923c208e183a7b 1-27
+app/src/main/java/io/archivebox/app/MainActivity.kt
+  h_923c208e183a7b 1-32
+app/src/main/java/io/archivebox/app/data/ArchiveApi.kt
+  h_923c208e183a7b 1-195
+app/src/main/java/io/archivebox/app/data/ArchiveRepository.kt
+  h_923c208e183a7b 1-78
+app/src/main/java/io/archivebox/app/data/Discovery.kt
+  h_923c208e183a7b 1-128
+app/src/main/java/io/archivebox/app/ui/AddScreen.kt
+  h_923c208e183a7b 1-131
+app/src/main/java/io/archivebox/app/ui/ArchiveBoxApp.kt
+  h_923c208e183a7b 1-193
+app/src/main/java/io/archivebox/app/ui/ConnectionSettings.kt
+  h_923c208e183a7b 1-130
+app/src/main/java/io/archivebox/app/ui/IncomingRequest.kt
+  h_923c208e183a7b 1-40
+app/src/main/java/io/archivebox/app/ui/SearchScreen.kt
+  h_923c208e183a7b 1-79
+app/src/main/java/io/archivebox/app/ui/ServerBrowser.kt
+  h_923c208e183a7b 1-99
+app/src/main/java/io/archivebox/app/ui/SetupGuide.kt
+  h_923c208e183a7b 1-48
+app/src/main/java/io/archivebox/app/ui/Theme.kt
+  h_923c208e183a7b 1-27
+app/src/main/res/drawable/ic_archivebox.xml
+  h_923c208e183a7b 1-4
+app/src/main/res/drawable/ic_archivebox_monochrome.xml
+  h_923c208e183a7b 1-3
+app/src/main/res/drawable/widget_background.xml
+  h_923c208e183a7b 1-4
+app/src/main/res/layout/archive_widget.xml
+  h_923c208e183a7b 1-12
+app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+  h_923c208e183a7b 1-5
+app/src/main/res/values/styles.xml
+  h_923c208e183a7b 1-12
+app/src/main/res/xml/archive_widget.xml
+  h_923c208e183a7b 1-5
+app/src/main/res/xml/network_security_config.xml
+  h_923c208e183a7b 1-7
+app/src/main/res/xml/shortcuts.xml
+  h_923c208e183a7b 1-8
+build.gradle.kts
+  h_923c208e183a7b 1-4
+docs/BRANDING.md
+  h_923c208e183a7b 1-11
+docs/PARITY.md
+  h_923c208e183a7b 1-25
+docs/PRIVACY.md
+  h_923c208e183a7b 1-15
+docs/RELEASES.md
+  h_923c208e183a7b 1-50
+docs/VALIDATION.md
+  h_923c208e183a7b 1-22
+docs/WEBSITE.md
+  h_923c208e183a7b 1-68
+docs/footer.html
+  h_923c208e183a7b 1-27
+docs/header.html
+  h_923c208e183a7b 1-10
+docs/index.html
+  h_923c208e183a7b 1-27
+docs/site-chrome.css
+  h_923c208e183a7b 1-75
+docs/style.css
+  h_923c208e183a7b 1
+gradle.properties
+  h_923c208e183a7b 1-5
+gradle/wrapper/gradle-wrapper.properties
+  h_923c208e183a7b 1-8
+gradlew
+  h_923c208e183a7b 1-248
+gradlew.bat
+  h_923c208e183a7b 1-93
+scripts/build-site.mjs
+  h_923c208e183a7b 1-78
+scripts/capture-screenshots.sh
+  h_923c208e183a7b 1-68
+scripts/release-version.mjs
+  h_923c208e183a7b 1-39
+scripts/start-screenshot-server.sh
+  h_923c208e183a7b 1-83
+scripts/test-release-version.mjs
+  h_923c208e183a7b 1-33
+settings.gradle.kts
+  h_923c208e183a7b 1-7
+version.properties
+  h_923c208e183a7b 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "32d6071a0553ce4f7bd64a9181542b72be6e9e93",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
