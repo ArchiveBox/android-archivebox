@@ -134,7 +134,7 @@ import kotlinx.coroutines.launch
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SectionTitle("Find a nearby server")
-        Text("Nearby ArchiveBox servers appear automatically. Add a hostname or IP address to check another server.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Nearby servers on port 5797 appear automatically below.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(hints, { hints = it }, label = { Text("Server hostnames or IP addresses") }, placeholder = { Text("archivebox.tailnet-name.ts.net") }, supportingText = { Text("Optional · separate addresses with commas") }, maxLines = 4, modifier = Modifier.fillMaxWidth().testTag("connection.hints"))
         OutlinedButton(onClick = { scan() }, enabled = !scanning, modifier = Modifier.fillMaxWidth().testTag("connection.discover")) {
             Icon(Icons.Outlined.Radar, null); Spacer(Modifier.width(8.dp)); Text(if (scanning) "Looking for servers…" else "Discover servers")
