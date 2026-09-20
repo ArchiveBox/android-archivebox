@@ -2,6 +2,12 @@ name: Android build, capture, and release
 on:
   push:
     branches: [main]
+    # Marketing-only updates publish independently through pages.yml.
+    paths-ignore:
+      - '.github/pages/**'
+      - '.github/workflows/pages.yml'
+      - 'docs/**'
+      - 'README.md'
   pull_request:
   workflow_dispatch:
 
@@ -158,6 +164,7 @@ jobs:
         with:
           name: android-screenshots
           path: artifacts/screenshots
+      - uses: astral-sh/setup-uv@v7
       - name: Build website from this revision's verified captures
         env:
           RELEASE_VERSION: ${{ needs.version.outputs.name }}

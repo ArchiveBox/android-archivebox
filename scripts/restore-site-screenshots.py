@@ -1,14 +1,14 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --no-project python
 """Restore verified Android captures without waiting for a new app build."""
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
-from pathlib import Path
 import re
 import shutil
-import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
@@ -19,38 +19,16 @@ args = parser.parse_args()
 args.destination.mkdir(parents=True, exist_ok=True)
 
 
-def api(path):
-    return json.loads(subprocess.check_output(["gh", "api", f"repos/{REPO}/{path}"]))
-
-
-def trusted(run):
-    return (
-        run["head_repository"]["full_name"] == REPO
-        and run["head_branch"] == "main"
-        and run["event"] in ("push", "workflow_dispatch")
-        and run["path"] == ".github/workflows/ci.yml"
-        and run["conclusion"] == "success"
-    )
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / ".github/pages"))
+import artifacts
 
 
 def restore_artifact():
-    page = 1
-    while True:
-        runs = api(f"actions/workflows/ci.yml/runs?branch=main&status=success&per_page=50&page={page}")["workflow_runs"]
-        for run in runs:
-            if not trusted(run):
-                continue
-            rows = subprocess.check_output([
-                "gh", "api", f"repos/{REPO}/actions/runs/{run['id']}/artifacts?per_page=100",
-                "--paginate", "--jq", ".artifacts[] | @json",
-            ], text=True)
-            if any(a["name"] == "site-screenshots" and not a["expired"] for line in rows.splitlines() if (a := json.loads(line))):
-                subprocess.run(["gh", "run", "download", str(run["id"]), "--repo", REPO,
-                                "--name", "site-screenshots", "--dir", str(args.destination)], check=True)
-                return run
-        if len(runs) < 50:
-            return None
-        page += 1
+    for run in artifacts.runs(REPO, "ci.yml", "main"):
+        if "site-screenshots" in artifacts.names(REPO, run):
+            artifacts.download(REPO, run, "site-screenshots", args.destination)
+            return run
+    return None
 
 
 def restore_local():
@@ -65,10 +43,15 @@ def restore_local():
             raise ValueError("Unsafe local capture filename")
         shutil.copyfile(source / name, args.destination / name)
     (args.destination / "manifest.json").write_bytes(raw)
-    metadata = {"source": "checked-in-local", "commit": manifest["commit"],
-                "manifestSHA256": hashlib.sha256(raw).hexdigest()}
+    metadata = {
+        "source": "checked-in-local",
+        "commit": manifest["commit"],
+        "manifestSHA256": hashlib.sha256(raw).hexdigest(),
+    }
     (args.destination / "capture-run.json").write_text(json.dumps(metadata) + "\n")
-    print(f"Restored local Android captures from {manifest['commit']} (app {manifest['appVersion']}); no hosted CI run claimed")
+    print(
+        f"Restored local Android captures from {manifest['commit']} (app {manifest['appVersion']}); no hosted CI run claimed"
+    )
     raise SystemExit(0)
 
 
@@ -77,7 +60,7 @@ if run is None:
     # Bootstrap before the first Pages deployment, including while the custom
     # domain certificate is still being provisioned. GitHub confirms no prior
     # deployment exists; TLS or fetch failures on an existing site still fail.
-    if not api("deployments?environment=github-pages&per_page=1"):
+    if not artifacts.api(REPO, "deployments?environment=github-pages&per_page=1"):
         restore_local()
     # Published captures remain usable after Actions artifacts expire.
     base = "https://android.archivebox.io/screenshots/"
@@ -91,11 +74,14 @@ if run is None:
     manifest = json.loads(raw)
     if not manifest.get("workflowRun"):
         restore_local()
-    match = re.fullmatch(r"https://github\.com/ArchiveBox/android-archivebox/actions/runs/([1-9]\d*)", manifest["workflowRun"]["url"])
+    match = re.fullmatch(
+        r"https://github\.com/ArchiveBox/android-archivebox/actions/runs/([1-9]\d*)",
+        manifest["workflowRun"]["url"],
+    )
     if not match:
         raise ValueError("Unexpected published capture run URL")
-    run = api(f"actions/runs/{match[1]}")
-    if not trusted(run):
+    run = artifacts.api(REPO, f"actions/runs/{match[1]}")
+    if not artifacts.trusted(run, REPO, "ci.yml", "main"):
         raise ValueError("Published captures must come from successful main CI")
 
     def fetch(capture):
