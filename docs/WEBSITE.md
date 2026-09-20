@@ -73,4 +73,4 @@ Each manifest uses this shape; values below describe the fields and are not a us
 - `docs/assets`: official logo, favicons, and generic ArchiveBox OG image; see [branding credits](BRANDING.md).
 - `scripts/build-site.mjs`: manifest validation and static generation.
 
-Keep feature claims consistent with the implementation and [parity map](PARITY.md). Add capture coverage whenever a major screen is introduced. The APK CTA is the stable GitHub release asset `ArchiveBox-Android.apk`. Add a Google Play CTA only after its real listing URL exists.
+Keep feature claims consistent with the implementation. Add capture coverage whenever a major screen is introduced. The APK CTA is the stable GitHub release asset `ArchiveBox-Android.apk`. Add a Google Play CTA only after its real listing URL exists.

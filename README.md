@@ -30,8 +30,6 @@
 - 🔑 **Your server, your choice.** Connect by URL and API key; look for nearby servers on port `5759` or check tailnet hostnames.
 - 🎨 **At home on Android.** Kotlin, Jetpack Compose, Material 3, light and dark themes, and navigation that adapts to wider screens.
 
-This is a new Android implementation. See [feature parity](docs/PARITY.md) for what is native, what uses your server’s web interface, and what remains outside the initial scope. Build and device acceptance are tracked in [validation notes](docs/VALIDATION.md).
-
 ## Get started
 
 1. **Install the beta.** Download [ArchiveBox-Android.apk](https://github.com/ArchiveBox/android-archivebox/releases/latest/download/ArchiveBox-Android.apk) from GitHub Releases. Android may ask you to allow installation from your browser. Release downloads appear after the first successful signed release.
@@ -76,7 +74,7 @@ Set `ANDROID_HOME` or create a local `local.properties` with `sdk.dir` pointing 
 
 - [Release and signing setup](docs/RELEASES.md) — automatic main-branch versions, APK/AAB publishing, and Google Play prerequisites.
 - [Website and screenshot contract](docs/WEBSITE.md) — preview the site and maintain capture coverage.
-- [Feature parity](docs/PARITY.md) · [Validation](docs/VALIDATION.md) · [Privacy](docs/PRIVACY.md) · [Branding credits](docs/BRANDING.md).
+- [Privacy](docs/PRIVACY.md) · [Branding credits](docs/BRANDING.md).
 
 ## Help & feedback
 
