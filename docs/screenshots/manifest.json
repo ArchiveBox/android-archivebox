@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "commit": "b1d956bf8632c485dcb91910fa37c1c5728f5708",
+  "commit": "4ffca470fa646dce2d479445dfa7dce5e57fd7e0",
   "appVersion": "0.1.0",
-  "generatedAt": "2026-09-20T09:11:28.384421+00:00",
+  "generatedAt": "2026-09-20T10:07:31.234199+00:00",
   "device": "Google sdk_gphone16k_arm64 \u00b7 Android 17 (API 37)",
-  "backend": "7a5ad4c99ad796fd90aea7535e983297cb9f28b5",
+  "backend": "4b52eed55ab032a84d3b43dce9f89b498b38c679",
   "requiredScreenshots": [
     "dark-mode",
     "tablet",
@@ -49,7 +49,7 @@
       "description": "Use the real Android dark appearance across the native app.",
       "width": 1080,
       "height": 2400,
-      "sha256": "503bfc377521f96b6c85d14bbe2355db9117aeccdf15d411f4b98388c5301f0b"
+      "sha256": "32a5a5c99a22b8dff4291de2f4d25e781af78e9a86a1e9a59e976f15bf882120"
     },
     {
       "id": "tablet",
@@ -58,7 +58,7 @@
       "description": "Use adaptive navigation on an actual tablet-size Android display.",
       "width": 1280,
       "height": 800,
-      "sha256": "0b20331cd8dc22c57746cc0d5971bc1636eb2dbf8bbfb2ecd1c27ce0b8ac4e85"
+      "sha256": "bb1d782ad30292ec38cdcba7dff11bfc37df0d90ee56ba31e4edb95e7a358737"
     },
     {
       "id": "home",
@@ -67,7 +67,7 @@
       "description": "Navigate collection, server tools, and helpful resources.",
       "width": 1080,
       "height": 2400,
-      "sha256": "b96649668252a7b673fd5bed84536484eeb1b70c3d52084daeed6f0f9d3a5efa"
+      "sha256": "01d5ee3c3a331b148c4ac9d58ec7f7702d097beb90e59dcfcfd19700819af14a"
     },
     {
       "id": "crawls",
@@ -76,7 +76,7 @@
       "description": "Inspect actual crawl history on your server.",
       "width": 1080,
       "height": 2400,
-      "sha256": "b2416ecf9cd095641d77973a818e4d870f096a4b995c4115a375b3eae9f6ec79"
+      "sha256": "f2f9e0ba0a6a8bff0b1c2ad6c87c2b01b3b9ebd349f87348464b43d60d03749c"
     },
     {
       "id": "scheduled-crawls",
@@ -85,7 +85,7 @@
       "description": "Manage recurring captures on the server.",
       "width": 1080,
       "height": 2400,
-      "sha256": "9617e9d2f78c9a58143246240d97e8d56447b4c354025ece765cab8a26832a88"
+      "sha256": "45eb763063c491d726940ca1da3b23b177799581e9c5567680b9cf417b038b38"
     },
     {
       "id": "archive-results",
@@ -94,7 +94,7 @@
       "description": "Inspect real archive results and saved output files.",
       "width": 1080,
       "height": 2400,
-      "sha256": "3bf059f5e8cfa3c28ce5764186d046b466ec403d6b178aff87f67f60ffd28faf"
+      "sha256": "72a531eaf6d05c1c12e43248520d53ac1965606e3d55f167f60ba9e8db03b5dc"
     },
     {
       "id": "server-tags",
@@ -103,7 +103,7 @@
       "description": "Manage the server collection tags.",
       "width": 1080,
       "height": 2400,
-      "sha256": "d310ba21a05e5fba1e08001cdb8df5b047ba7131f1b2afe85da0823144be719f"
+      "sha256": "3ee0fa6221ced706b89814963022b3ba3ba067f0ef0416eba789e7657ce1f857"
     },
     {
       "id": "ai-agent",
@@ -112,7 +112,7 @@
       "description": "Access the server AI interface and its current availability.",
       "width": 1080,
       "height": 2400,
-      "sha256": "8b9aa828d94896372b9a2264ab6a988d90aa9f7812863582786f75284f3bbbde"
+      "sha256": "d6011294f26a0bffe6019ad449a37e1377427f3bb6d4e0bf3b24ed40aebe7c9d"
     },
     {
       "id": "users",
@@ -121,7 +121,7 @@
       "description": "Manage accounts on your own server.",
       "width": 1080,
       "height": 2400,
-      "sha256": "c9160471af4a389b37b4a7ecaaaadea80ac1ebfddb6905a998c33a46ab28715e"
+      "sha256": "9b91a10907c8aeb4f3ea30c797aa60d20d8064d7258067a1e4ea5df1d21295f4"
     },
     {
       "id": "personas",
@@ -130,7 +130,7 @@
       "description": "Manage server capture identities for logged-in websites.",
       "width": 1080,
       "height": 2400,
-      "sha256": "5618cb955507708fb410754cda2acadb7eb0a46b59df62672e8513395502460f"
+      "sha256": "26f451aa9a5a2ffc70d346bef4edcde456be71fadfc090e303f94065affd7d0b"
     },
     {
       "id": "api-keys",
@@ -139,7 +139,7 @@
       "description": "Review access keys in authenticated administration.",
       "width": 1080,
       "height": 2400,
-      "sha256": "5da7ea2088d2fc2ae15346c42f7f07d747e555bba697e74f9746c5b4502fbe22"
+      "sha256": "b2ad0c29d26713026802d468a37bbab6903fec811e25f585ea0128afabeda660"
     },
     {
       "id": "webhooks",
@@ -148,7 +148,7 @@
       "description": "Configure outbound server notifications.",
       "width": 1080,
       "height": 2400,
-      "sha256": "7f8f73a7eae214cdef98f0966fe33d6b2ddfbef42029e84994d44cc6a82bda2a"
+      "sha256": "a6e807e757eb6d7de95d7501fff4e3c638894a6a0b9fb9a91eee8e7a041172eb"
     },
     {
       "id": "processes",
@@ -157,7 +157,7 @@
       "description": "Inspect real server processes and their status.",
       "width": 1080,
       "height": 2400,
-      "sha256": "20b2c5306ad1a99b702100087d5fac4a1675575c4872c5cdb36de8fee87bbfb6"
+      "sha256": "e371886bfee19ea1f5152cfa4e5b29b58a26124282b8095d41852ca8e2b05ae3"
     },
     {
       "id": "machines",
@@ -166,7 +166,7 @@
       "description": "See machines registered with your ArchiveBox server.",
       "width": 1080,
       "height": 2400,
-      "sha256": "3119b2e9d8573df8e81dbc15a49553f1df962287a0ddc0c54c12b595622c7256"
+      "sha256": "8d7a0060668ee500ea614b38e338f17e70fbf5861fd887828e9ccaa4f847bb55"
     },
     {
       "id": "network-interfaces",
@@ -175,7 +175,7 @@
       "description": "Inspect server networking.",
       "width": 1080,
       "height": 2400,
-      "sha256": "f0c500861c030f3188a5db7808bafd5a5c03e08bf38de3d1f24ece71cce5cda8"
+      "sha256": "e8bba05dbe5b969a80d5fc7a5bd7d1d763fdfb0a478e5852ed0ee1517a0dce5e"
     },
     {
       "id": "binaries",
@@ -184,7 +184,7 @@
       "description": "See real capture executables available to the server.",
       "width": 1080,
       "height": 2400,
-      "sha256": "2c311ca1ff35c3a32a2f357334c5004075f2d448fceb05c499ea893ba5cdb609"
+      "sha256": "f8aecb7b78b62cf2c176f90aa014dae8fb75873a3eb06eb2a0f1b2767bc65539"
     },
     {
       "id": "plugins",
@@ -193,7 +193,7 @@
       "description": "Inspect available archiving plugins.",
       "width": 1080,
       "height": 2400,
-      "sha256": "f921561ef57b1c8e47cba4347d65bc7dcda0fba5cee8cd635f9b95548f971756"
+      "sha256": "c671ff88dfda71943d995de43223f9493cc1de91a0a3bac0e99c72b1cbc2659f"
     },
     {
       "id": "workers",
@@ -202,7 +202,7 @@
       "description": "View current server workers.",
       "width": 1080,
       "height": 2400,
-      "sha256": "8c84739d3cde0bb946b756a34491880cd43e0676a531e183ab75514d94025593"
+      "sha256": "50ae4154dabf8647c2cd3d9fa0bb8e56000eeec6e1aba07303befda4bb33f05c"
     },
     {
       "id": "logs",
@@ -211,7 +211,7 @@
       "description": "Inspect actual server activity and diagnostics.",
       "width": 1080,
       "height": 2400,
-      "sha256": "5de4cba270e5e22055de6297dbd122b9e9e38f67aacb31d6b4bc09dc372cd36b"
+      "sha256": "ba8f05758abe80ca8b28fddc37403e36fbbc6c69755a3f4479b6fe81dc03692b"
     },
     {
       "id": "widget",
@@ -220,7 +220,7 @@
       "description": "Save or search from a real installed Android home screen widget.",
       "width": 1080,
       "height": 2400,
-      "sha256": "4ba612d3ea50b2611246314c4b9ab1700a72567e634ef2e4140baae3d38ad1ac"
+      "sha256": "b78299b93c8461de8b459bd0a04fb9b1e6cb08c0ce02360aa8482cc18907dd47"
     },
     {
       "id": "setup-docker",
@@ -229,7 +229,7 @@
       "description": "Follow the native Docker setup guide with the ready-to-copy command.",
       "width": 1080,
       "height": 2400,
-      "sha256": "9d42e952aa5288c456f53d78b4bb15b1931292996460427a071f864594741850"
+      "sha256": "b1e7d215dbf4f407d3ed7542ccb683a085e971e27cbb906e845d2c2f25249514"
     },
     {
       "id": "onboarding",
@@ -238,7 +238,7 @@
       "description": "Choose an existing server or follow the setup guide.",
       "width": 1080,
       "height": 2400,
-      "sha256": "d2dd3c8636445d8eceadc8cc89800f9e116ff19fc0f8b352d1c129819e23e168"
+      "sha256": "5f9658333616f1e11f112f3049b1f7bc928ea9144cea1d3659084d6dad895a52"
     },
     {
       "id": "connections",
@@ -247,16 +247,16 @@
       "description": "Connect with your server address and securely stored API key.",
       "width": 1080,
       "height": 2400,
-      "sha256": "2dc8a5ed6765dd88d11499e968c64165b445ec6a48cd113bae5e19dec8bbe32e"
+      "sha256": "5541881dc0d73c4e7d8b652bc018e2637f74e7f2b21cbcbb9aad33c0c13f82df"
     },
     {
       "id": "discovery",
       "file": "discovery.png",
       "title": "Discover nearby servers",
-      "description": "Look for ArchiveBox servers on port 5759 on your local network and configured tailnet.",
+      "description": "Look for ArchiveBox servers on port 5797 on your local network and configured tailnet.",
       "width": 1080,
       "height": 2400,
-      "sha256": "c6ff3dbfe345fa58fd5404fb921c55051321ac7d9864a7524c1651f67a01d1a7"
+      "sha256": "7b882bf15fbca2fc2bb04dd075947e008d0e9ab3988920b7d65ebc98570b3749"
     },
     {
       "id": "library",
@@ -265,7 +265,7 @@
       "description": "Browse the real ArchiveBox collection and archived pages.",
       "width": 1080,
       "height": 2400,
-      "sha256": "4f7fbc34efc4ee01082af893401ac5115ed94ac516d48d5fb70e6f7595482ae5"
+      "sha256": "1d8871777f36918a112ce00ec4c545ebbcee035b79b51b5c327bdf8d0363469c"
     },
     {
       "id": "search",
@@ -274,7 +274,7 @@
       "description": "Search saved pages by title, URL, or tags.",
       "width": 1080,
       "height": 2400,
-      "sha256": "3ac05da2d5ce0d1320f3bf26ddfe677a0d4a5fb6cb767d8cd1123620ad460d8a"
+      "sha256": "6b2f3863335d8d1f1bb7e5a9011c2701121aed86218fab2f7ec1b8fd396c5a2b"
     },
     {
       "id": "snapshot",
@@ -283,7 +283,7 @@
       "description": "Read the preserved copy hosted on your ArchiveBox server.",
       "width": 1080,
       "height": 2400,
-      "sha256": "5edcce2c103ee3cd3eb4a5120798f162c33341479359dd1438607895b3b2b2a9"
+      "sha256": "ff7667a8548959d0eae146901f321a3a4fbcdc1797ad60311d249b0fd30ca5af"
     },
     {
       "id": "add",
@@ -292,7 +292,7 @@
       "description": "Send URLs and capture preferences to your server.",
       "width": 1080,
       "height": 2400,
-      "sha256": "bfaf7f7ed47a051b3e82434f5ece133d13c59825d3a38577f427760aeb2709d1"
+      "sha256": "b12796cc3d69cf41ea9932aad77fa51b8015e0093270eaf6cfeb840b3eff3b9f"
     },
     {
       "id": "tags",
@@ -301,7 +301,7 @@
       "description": "Choose existing tags or add your own.",
       "width": 1080,
       "height": 2400,
-      "sha256": "7c720cd000d8f9b61f88288f48a38bfdfdafbbf0e998e601a8897662e4138f0a"
+      "sha256": "5d2c5d9033558e84b0ce6bbce228f44eca843c36c5299e4e85ff7fd08b8126ea"
     },
     {
       "id": "share",
@@ -310,7 +310,7 @@
       "description": "Receive a real Android share intent and review the URL before saving.",
       "width": 1080,
       "height": 2400,
-      "sha256": "71ac915fb7af1f0232824600afc94a659b12c510438cf5fdb6be8251e0b5ebdf"
+      "sha256": "22e443f189b031e2b8203e65a889a5c2daca49c78607582e122f58f036444829"
     },
     {
       "id": "share-saved",
@@ -319,7 +319,7 @@
       "description": "Confirm the server accepted your link and its tags.",
       "width": 1080,
       "height": 2400,
-      "sha256": "6ccdc695e240aa3a432043454d1817e33f5e3ae251038c503dfc9165c0f9c1da"
+      "sha256": "555a12a2556d7b4db0fc99e5270a9b96d66542941ff2f956245803de50bcbaaa"
     },
     {
       "id": "activity",
@@ -328,7 +328,7 @@
       "description": "See server activity and archiving progress.",
       "width": 1080,
       "height": 2400,
-      "sha256": "e7412c2ecdb982a27dcfd89ce4fbd2fcd20f4da0b40ad9435c769393785c2c75"
+      "sha256": "436f9ce608e3e93a87fa59d4a0582790b72dfb33ac7715626e3abc6d215ec048"
     },
     {
       "id": "settings",
@@ -337,7 +337,7 @@
       "description": "Manage your server and reopen the setup guide.",
       "width": 1080,
       "height": 2400,
-      "sha256": "d58b44d56a2993f7d6ae5760cea19f232302a7fb08888338e6a9de2247156a15"
+      "sha256": "4a82e2bd4a2c07c27661eab64eea2316494808a0ec501495988a548466bdad91"
     },
     {
       "id": "server-browser",
@@ -346,7 +346,7 @@
       "description": "Use authenticated ArchiveBox administration inside the app.",
       "width": 1080,
       "height": 2400,
-      "sha256": "1f10525aaf046d20b6f70f5d23bb16ff65002d05fc48bc7c867aba876d0bb4ce"
+      "sha256": "efd51aa46a6f57b08e0a7dac45027e1de8b2c734d5788c45370a01a4b7588faa"
     }
   ]
 }
