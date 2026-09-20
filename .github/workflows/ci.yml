@@ -100,11 +100,12 @@ jobs:
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: '37.0'
-          target: google_apis
+          # API 37 revision 7 matches the validated 16 KB image; revision 6's mapper crashes.
+          target: google_apis_ps16k
           arch: x86_64
           profile: pixel_7
           disk-size: 4096M
-          # The action's deprecated swiftshader_indirect crashes API 37 SurfaceFlinger.
+          # Use the current supported software renderer, not the action's deprecated default.
           emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
           script: bash scripts/capture-screenshots.sh "$RUNNER_TEMP/archivebox-capture" artifacts/screenshots artifacts/apks
