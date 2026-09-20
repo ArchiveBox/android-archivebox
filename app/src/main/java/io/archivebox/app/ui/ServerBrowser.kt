@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.archivebox.app.data.*
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import java.net.URI
 
@@ -26,26 +28,29 @@ import java.net.URI
     val context = LocalContext.current
     var browser by remember { mutableStateOf<WebView?>(null) }
     var session by remember(connection) { mutableStateOf<BrowserSession?>(null) }
-    var error by remember(connection, path) { mutableStateOf<String?>(null) }
-    var ready by remember(connection, path) { mutableStateOf(false) }
+    // These cells must outlive route changes: the WebView client retains their references.
+    var error by remember(connection) { mutableStateOf<String?>(null) }
+    var ready by remember(connection) { mutableStateOf(false) }
     var canBack by remember { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
     LaunchedEffect(connection, reload) {
         session = null; ready = false; error = null
         try {
             val value = repository.api.browserSession(connection)
-            val cookies = CookieManager.getInstance()
-            // No bearer token is ever exposed to HTML, JavaScript, browser storage, or a URL.
-            suspendCancellableCoroutine<Unit> { continuation -> cookies.removeAllCookies { if (continuation.isActive) continuation.resume(Unit) } }
-            cookies.setAcceptCookie(true)
-            val cookie = "${value.cookieName}=${value.cookieValue}; Path=/; HttpOnly; SameSite=Lax" + if (value.secure) "; Secure" else ""
-            suspendCancellableCoroutine<Unit> { continuation -> cookies.setCookie(value.adminUrl, cookie) { if (continuation.isActive) continuation.resume(Unit) } }
+            withContext(Dispatchers.Main.immediate) {
+                val cookies = CookieManager.getInstance()
+                // No bearer token is ever exposed to HTML, JavaScript, browser storage, or a URL.
+                suspendCancellableCoroutine<Unit> { continuation -> cookies.removeAllCookies { if (continuation.isActive) continuation.resume(Unit) } }
+                cookies.setAcceptCookie(true)
+                val cookie = "${value.cookieName}=${value.cookieValue}; Path=/; HttpOnly; SameSite=Lax" + if (value.secure) "; Secure" else ""
+                suspendCancellableCoroutine<Unit> { continuation -> cookies.setCookie(value.adminUrl, cookie) { if (continuation.isActive) continuation.resume(Unit) } }
+            }
             session = value
         } catch (e: Exception) { error = e.message ?: "Couldn't open your server's browser session." }
     }
     BackHandler(canBack) { browser?.goBack() }
     DisposableEffect(connection) {
-        onDispose { browser?.stopLoading(); browser?.clearCache(true); browser?.clearHistory(); browser?.destroy(); browser = null; CookieManager.getInstance().removeAllCookies(null); WebStorage.getInstance().deleteAllData() }
+        onDispose { CookieManager.getInstance().removeAllCookies(null); WebStorage.getInstance().deleteAllData() }
     }
     Column(Modifier.fillMaxSize()) {
         if (!ready && error == null) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -80,14 +85,19 @@ import java.net.URI
                                 return true
                             }
                             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) { ready = false; error = null; canBack = view.canGoBack() }
-                            override fun onPageFinished(view: WebView, url: String) { ready = true; canBack = view.canGoBack() }
-                            override fun onReceivedError(view: WebView, request: WebResourceRequest, failure: WebResourceError) { if (request.isForMainFrame) error = "Couldn't load this page. ${failure.description}" }
-                            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) { if (request.isForMainFrame) error = "Server returned HTTP ${response.statusCode}." }
+                            override fun onPageFinished(view: WebView, url: String) { ready = error == null; canBack = view.canGoBack() }
+                            override fun onReceivedError(view: WebView, request: WebResourceRequest, failure: WebResourceError) { if (request.isForMainFrame) { ready = false; error = "Couldn't load this page. ${failure.description}" } }
+                            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) { if (request.isForMainFrame) { ready = false; error = "Server returned HTTP ${response.statusCode}." } }
                             // The default SSL handler cancels certificate errors; never bypass certificate validation.
                         }
                         tag = destination
                         loadUrl(destination)
                     }
+                },
+                onReset = null,
+                onRelease = { view ->
+                    view.stopLoading(); view.clearCache(true); view.clearHistory(); view.destroy()
+                    if (browser === view) browser = null
                 },
                 update = { view -> if (view.tag != destination) { view.tag = destination; view.loadUrl(destination) } },
             )

@@ -2,9 +2,17 @@ version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
+    open-pull-requests-limit: 1
+    groups:
+      actions:
+        patterns: ['*']
     schedule:
       interval: weekly
   - package-ecosystem: gradle
     directory: /
+    open-pull-requests-limit: 1
+    groups:
+      android-toolchain:
+        patterns: ['*']
     schedule:
       interval: weekly

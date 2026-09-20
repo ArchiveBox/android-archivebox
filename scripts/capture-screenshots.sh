@@ -5,14 +5,20 @@ server=${1:?Usage: capture-screenshots.sh SERVER_DATA SCREENSHOTS_DIR [APK_DIR]}
 output=${2:?A screenshot output directory is required}
 apks=${3:-app/build/outputs/apk}
 mkdir -p "$output" artifacts
+curl --fail --silent --show-error --max-time 10 "$(cat "$server/server-url")/api/v1/openapi.json" > /dev/null
+export BACKEND_REVISION
+BACKEND_REVISION=$(cat "$server/backend-revision")
 adb wait-for-device
 adb reverse tcp:5759 tcp:5759
 main_apk=$(find "$apks" -name '*debug.apk' ! -name '*androidTest*' -print -quit)
 test_apk=$(find "$apks" -name '*androidTest.apk' -print -quit)
 [[ -n "$main_apk" && -n "$test_apk" ]] || { echo 'Both app and test APKs are required' >&2; exit 1; }
-adb install -r "$main_apk"
+# A fresh install also removes stale launcher-widget PendingIntents from prior runs.
+if adb shell pm list packages io.archivebox.app | grep -q '^package:io.archivebox.app$'; then
+    adb uninstall io.archivebox.app
+fi
+adb install "$main_apk"
 adb install -r "$test_apk"
-adb shell pm clear io.archivebox.app
 # Preserve real failures: instrumentation exit status alone does not report failed tests.
 api_token=$(cat "$server/api-token")
 if [[ "${GITHUB_ACTIONS:-}" == true ]]; then printf '::add-mask::%s\n' "$api_token"; fi
@@ -24,6 +30,8 @@ adb shell am instrument -w -r \
 adb logcat -d > artifacts/logcat.txt
 if ! grep -Eq '^OK \([1-9][0-9]* test' artifacts/instrumentation.log; then
     echo 'The real-device journey did not pass; refusing to publish screenshots.' >&2
+    mkdir -p artifacts/failed-screenshots
+    adb pull /sdcard/Android/data/io.archivebox.app/files/screenshots/. artifacts/failed-screenshots/ || true
     exit 1
 fi
 adb pull /sdcard/Android/data/io.archivebox.app/files/screenshots/. "$output/"
@@ -53,6 +61,7 @@ labels = {
     'workers': ('Workers', 'View current server workers.'),
     'logs': ('Server logs', 'Inspect actual server activity and diagnostics.'),
     'widget': ('ArchiveBox on your home screen', 'Save or search from a real installed Android home screen widget.'),
+    'setup-docker': ('Run your own server', 'Follow the native Docker setup guide with the ready-to-copy command.'),
     'onboarding': ('Welcome to your archive', 'Choose an existing server or follow the setup guide.'),
     'connections': ('Your server, connected', 'Connect with your server address and securely stored API key.'),
     'discovery': ('Discover nearby servers', 'Look for ArchiveBox servers on port 5759 on your local network and configured tailnet.'),

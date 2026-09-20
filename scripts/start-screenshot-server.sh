@@ -19,6 +19,7 @@ import socket, sys
 with socket.socket() as sock:
     sock.bind(('127.0.0.1', int(sys.argv[1])))
 PY
+git -C "$backend" rev-parse HEAD > "$data/backend-revision"
 cd "$data"
 abx() { uv run --no-sync --project "$backend" archivebox "$@"; }
 abx init --quick
@@ -27,11 +28,20 @@ export DJANGO_SUPERUSER_USERNAME="$SCREENSHOT_USERNAME"
 export DJANGO_SUPERUSER_PASSWORD="$SCREENSHOT_PASSWORD"
 export DJANGO_SUPERUSER_EMAIL=android-captures@example.invalid
 abx manage createsuperuser --noinput
+opencode_port=$(uv run --no-sync --project "$backend" python - <<'PYPORT'
+import socket
+with socket.socket() as sock:
+    sock.bind(('127.0.0.1', 0))
+    print(sock.getsockname()[1])
+PYPORT
+)
 abx config --set SEARCH_BACKEND_ENGINE=sqlite SEARCH_BACKEND_SONIC_ENABLED=False \
-    SEARCH_BACKEND_SQLITE_ENABLED=True PLUGINS=title,headers,wget,search_backend_sqlite
+    SEARCH_BACKEND_SQLITE_ENABLED=True PLUGINS=title,headers,wget,screenshot,search_backend_sqlite,opencode \
+    OPENCODE_ENABLED=True "OPENCODE_PORT=$opencode_port"
 abx persona create 'Research browser'
-abx install wget title headers
-abx add --depth=0 --tag=reference,research --plugins=title,headers,wget,search_backend_sqlite \
+abx install opencode --binproviders=env,pnpm
+abx install chrome wget title headers screenshot
+abx add --depth=0 --tag=reference,research --plugins=title,headers,wget,screenshot,search_backend_sqlite \
     https://example.com https://archivebox.io
 server_pid=''
 complete=0

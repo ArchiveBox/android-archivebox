@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.view.View
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -19,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -26,13 +28,14 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.archivebox.app.data.*
+import io.archivebox.app.BuildConfig
 import kotlinx.coroutines.launch
 
 @Composable internal fun ConnectionSettings(repository: ArchiveRepository, incoming: IncomingRequest?, onRequestConsumed: () -> Unit, onGuide: () -> Unit) {
     val connection by repository.connection.collectAsStateWithLifecycle()
     var server by rememberSaveable { mutableStateOf(connection?.server.orEmpty()) }
     // Credentials intentionally remain in memory, never in Android's saved-instance bundle.
-    var token by remember { mutableStateOf(connection?.token.orEmpty()) }
+    var token by remember { mutableStateOf(connection?.takeIf { sameOrigin(it.server, server) }?.token.orEmpty()) }
     var showToken by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
@@ -43,6 +46,18 @@ import kotlinx.coroutines.launch
     var disconnect by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val previous = view.importantForAutofill
+        view.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        onDispose { view.importantForAutofill = previous }
+    }
+    fun editServer(value: String) {
+        val preservesOrigin = runCatching { sameOrigin(normalizeServer(server), normalizeServer(value)) }.getOrDefault(false)
+        if (!preservesOrigin) { token = ""; showToken = false }
+        server = value
+        status = null
+    }
     var afterPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) afterPermission?.invoke() else error = "Allow local network access to reach ArchiveBox servers on your LAN or tailnet."
@@ -61,12 +76,15 @@ import kotlinx.coroutines.launch
         }
     }
     fun check(save: Boolean) {
+        // Bind the user-approved address and key before a permission prompt or network suspension.
+        val requestedServer = server
+        val requestedToken = token.trim()
         withNetworkPermission {
             scope.launch {
                 busy = true; error = null; status = null
                 try {
-                    val canonical = repository.api.discover(server)
-                    val candidate = Connection(canonical, token.trim(), connection?.persona ?: "Default")
+                    val canonical = repository.api.discover(requestedServer)
+                    val candidate = Connection(canonical, requestedToken, connection?.persona ?: "Default")
                     repository.api.testToken(candidate)
                     server = canonical
                     if (save) { repository.saveConnection(candidate); repository.dismissSetup() }
@@ -102,8 +120,8 @@ import kotlinx.coroutines.launch
                 Text("Connect over your home network, Tailscale, or the internet. Use the address you open in a browser.")
             }
         }
-        OutlinedTextField(server, { server = it; status = null }, label = { Text("Server URL") }, placeholder = { Text("http://archivebox.local:5759") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), singleLine = true, modifier = Modifier.fillMaxWidth().testTag("connection.url"), leadingIcon = { Icon(Icons.Outlined.Link, null) })
-        OutlinedTextField(token, { token = it; status = null }, label = { Text("API key") }, singleLine = true, visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth().testTag("connection.token"), leadingIcon = { Icon(Icons.Outlined.Key, null) }, trailingIcon = { IconButton(onClick = { showToken = !showToken }) { Icon(if (showToken) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (showToken) "Hide API key" else "Show API key") } })
+        OutlinedTextField(server, { editServer(it) }, enabled = !busy, label = { Text("Server URL") }, placeholder = { Text("http://archivebox.local:5759") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), singleLine = true, modifier = Modifier.fillMaxWidth().testTag("connection.url"), leadingIcon = { Icon(Icons.Outlined.Link, null) })
+        OutlinedTextField(token, { token = it; status = null }, enabled = !busy, label = { Text("API key") }, singleLine = true, visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth().testTag("connection.token"), leadingIcon = { Icon(Icons.Outlined.Key, null) }, trailingIcon = { IconButton(onClick = { showToken = !showToken }) { Icon(if (showToken) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (showToken) "Hide API key" else "Show API key") } })
         TextButton(onClick = {
             runCatching { normalizeServer(server) }.onSuccess { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("${it.trimEnd('/')}/admin/api/apitoken/"))) }.onFailure { error = it.message }
         }, enabled = server.isNotBlank()) { Icon(Icons.Outlined.OpenInNew, null); Spacer(Modifier.width(8.dp)); Text("Get an API key from your server") }
@@ -123,7 +141,7 @@ import kotlinx.coroutines.launch
         }
         if (scanning) LinearProgressIndicator(Modifier.fillMaxWidth())
         found.forEach { candidate ->
-            OutlinedCard(onClick = { server = candidate.url; status = "Selected ${candidate.label}. Enter its API key, then test and save." }, modifier = Modifier.fillMaxWidth().testTag("discovery.server")) {
+            OutlinedCard(onClick = { editServer(candidate.url); status = "Selected ${candidate.label}. Enter its API key, then test and save." }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("discovery.server")) {
                 ListItem(headlineContent = { Text(candidate.label) }, supportingContent = { Text(candidate.url) }, leadingContent = { Icon(Icons.Outlined.Dns, null) }, trailingContent = { Icon(Icons.Outlined.AddLink, null) })
             }
         }
@@ -131,6 +149,7 @@ import kotlinx.coroutines.launch
         TextButton(onClick = onGuide, modifier = Modifier.testTag("setup.reopen")) { Icon(Icons.Outlined.HelpOutline, null); Spacer(Modifier.width(8.dp)); Text("Open setup guide") }
         if (connection != null) TextButton(onClick = { disconnect = true }, modifier = Modifier.testTag("connection.disconnect")) { Text("Disconnect from server", color = MaterialTheme.colorScheme.error) }
         Text("Your API key is encrypted on this device. Shared URLs go only to the server you choose. No tracking or analytics.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("ArchiveBox ${BuildConfig.VERSION_NAME} · GPL-3.0-only", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("settings.version"))
     }
     if (disconnect) AlertDialog(onDismissRequest = { disconnect = false }, title = { Text("Disconnect this device?") }, text = { Text("Your archive stays on the server. The saved API key and browser session will be removed from this device.") }, confirmButton = { TextButton(onClick = { scope.launch { repository.clearConnection(); token = ""; status = null; disconnect = false } }) { Text("Disconnect") } }, dismissButton = { TextButton(onClick = { disconnect = false }) { Text("Cancel") } })
 }

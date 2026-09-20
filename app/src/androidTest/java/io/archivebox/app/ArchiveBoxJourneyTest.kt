@@ -4,7 +4,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
@@ -33,7 +33,19 @@ class ArchiveBoxJourneyTest {
 
     private fun node(tag: String) = compose.onAllNodesWithTag(tag).onLast()
     private fun await(tag: String) {
-        compose.waitUntil(30_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+        try {
+            compose.waitUntil(30_000) {
+                val errors = compose.onAllNodesWithTag("error").fetchSemanticsNodes()
+                if (errors.isNotEmpty()) {
+                    shot("failure", composeIdle = false)
+                    throw AssertionError("App rendered an error while awaiting $tag: " + errors.joinToString { it.config.toString() })
+                }
+                compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (failure: Throwable) {
+            shot("failure", composeIdle = false)
+            throw failure
+        }
     }
     private fun click(tag: String, scroll: Boolean = false) {
         await(tag)
@@ -43,6 +55,7 @@ class ArchiveBoxJourneyTest {
     private fun fill(tag: String, text: String) {
         await(tag)
         node(tag).performScrollTo().performTextReplacement(text)
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
     }
     private fun shot(id: String, composeIdle: Boolean = true) {
         if (composeIdle) compose.waitForIdle()
@@ -58,6 +71,7 @@ class ArchiveBoxJourneyTest {
         await("browser.ready")
         compose.onAllNodesWithTag("error").assertCountEquals(0)
         assertFalse("Server routes must authenticate, not render a login form", device.hasObject(By.text("Log in")))
+        assertFalse("Server routes must not show a 404 page", device.hasObject(By.text("Not Found")))
     }
     private fun captureWidget() {
         device.pressHome()
@@ -95,6 +109,10 @@ class ArchiveBoxJourneyTest {
     @Test fun realServerJourneyAndEveryMajorScreen() {
         await("setup.connect")
         shot("onboarding")
+        click("setup.docker", scroll = true)
+        await("guide.docker")
+        shot("setup-docker")
+        click("guide.back")
         click("setup.connect", scroll = true)
         fill("connection.url", server)
         fill("connection.token", token)
@@ -108,10 +126,13 @@ class ArchiveBoxJourneyTest {
         node("connection.url").performScrollTo()
         shot("connections")
 
-        fill("connection.hints", "127.0.0.1")
-        click("connection.discover", scroll = true)
-        await("discovery.server")
-        node("discovery.server").performScrollTo().assertTextContains("127.0.0.1", substring = true)
+        click("tab.Archive")
+        click("tab.Settings")
+        node("connection.discover").performScrollTo()
+        compose.waitUntil(30_000) {
+            compose.onAllNodesWithText("10.0.2.2", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("10.0.2.2", substring = true).performScrollTo().assertExists()
         shot("discovery")
 
         click("tab.Archive")
@@ -125,7 +146,7 @@ class ArchiveBoxJourneyTest {
         val exampleId = snapshots("example.com").first { it.getString("url").trimEnd('/') == "https://example.com" }.getString("id")
         await("search.result.$exampleId")
         shot("search")
-        node("search.result.$exampleId").performClick()
+        compose.onNode(hasText("Open saved page") and hasAnyAncestor(hasTestTag("search.result.$exampleId"))).performClick()
         await("browser.ready")
         compose.onAllNodesWithTag("error").assertCountEquals(0)
         assertTrue("The snapshot must render actual archived content", device.wait(Until.hasObject(By.textContains("Example Domain")), 10_000))
@@ -202,6 +223,19 @@ class ArchiveBoxJourneyTest {
         click("tab.Settings")
         node("setup.reopen").performScrollTo()
         shot("settings")
+        fill("connection.url", "${server.trimEnd('/')}/admin/")
+        assertEquals("A same-origin path must retain the key", token, node("connection.token").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.InputText].text)
+        fill("connection.url", "https://example.invalid/")
+        assertEquals("Changing origin must clear the key", "", node("connection.token").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.InputText].text)
+        node("connection.save").assertIsNotEnabled()
+        device.setOrientationLeft()
+        await("connection.token")
+        assertEquals("Rotation must not restore a key for another origin", "", node("connection.token").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.InputText].text)
+        device.setOrientationNatural()
+        fill("connection.url", server)
+        fill("connection.token", token)
+        click("connection.save", scroll = true)
+        await("connection.status")
         captureWidget()
 
         File(output, "device.json").writeText(JSONObject().put("appVersion", BuildConfig.VERSION_NAME)
