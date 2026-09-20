@@ -92,6 +92,11 @@ jobs:
         with:
           name: android-test-apks
           path: artifacts/apks
+      # Older runner-provided avdmanager versions misread API 37.0 as android-0.
+      - uses: android-actions/setup-android@v4.0.4
+        with:
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
       - name: Enable hardware virtualization
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -111,6 +116,7 @@ jobs:
           # disable that host-memory optimization on Linux too, retaining real GPU rendering.
           emulator-options: -no-window -gpu swiftshader -feature -GLDirectMem -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
+          pre-emulator-launch-script: grep -Fx 'target=android-37.0' "$HOME/.android/avd/test.ini"
           script: bash scripts/capture-screenshots.sh "$RUNNER_TEMP/archivebox-capture" artifacts/screenshots artifacts/apks
       - uses: actions/upload-artifact@v4
         with:
