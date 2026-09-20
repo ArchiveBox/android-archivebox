@@ -134,8 +134,8 @@ import kotlinx.coroutines.launch
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SectionTitle("Find a nearby server")
-        Text("Nearby servers on port 5797 appear automatically. Android cannot read other apps' Tailscale peer lists. With your VPN connected, add peer hostnames or paste tailscale status --json output; discovered hosts are remembered for future scans.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(hints, { hints = it }, label = { Text("Tailnet hostnames or status JSON") }, placeholder = { Text("archivebox.tailnet-name.ts.net") }, supportingText = { Text("Optional · separate addresses with commas, or paste status JSON") }, maxLines = 4, modifier = Modifier.fillMaxWidth().testTag("connection.hints"))
+        Text("Nearby ArchiveBox servers appear automatically. Add a hostname or IP address to check another server.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedTextField(hints, { hints = it }, label = { Text("Server hostnames or IP addresses") }, placeholder = { Text("archivebox.tailnet-name.ts.net") }, supportingText = { Text("Optional · separate addresses with commas") }, maxLines = 4, modifier = Modifier.fillMaxWidth().testTag("connection.hints"))
         OutlinedButton(onClick = { scan() }, enabled = !scanning, modifier = Modifier.fillMaxWidth().testTag("connection.discover")) {
             Icon(Icons.Outlined.Radar, null); Spacer(Modifier.width(8.dp)); Text(if (scanning) "Looking for servers…" else "Discover servers")
         }

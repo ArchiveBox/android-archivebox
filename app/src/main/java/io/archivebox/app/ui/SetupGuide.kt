@@ -104,7 +104,7 @@ import androidx.compose.ui.unit.dp
             Icon(Icons.Outlined.OpenInNew, null); Spacer(Modifier.width(8.dp)); Text(if (route == "mac") "Download the Mac server app" else "Open the full setup guide")
         }
         Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(18.dp)) {
-            Text("On your phone, localhost means this phone. Use your server computer's network address instead. Connection Settings can discover reachable servers on port 5797.", Modifier.padding(18.dp), style = MaterialTheme.typography.bodyMedium)
+            Text("Use your server's network address to connect your phone. Find nearby servers in Connection Settings.", Modifier.padding(18.dp), style = MaterialTheme.typography.bodyMedium)
         }
         Button(onClick = onConnect, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("setup.connect")) { Text("I already have a server") }
     }
