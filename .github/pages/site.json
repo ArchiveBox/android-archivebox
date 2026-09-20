@@ -1,0 +1,8 @@
+{
+  "name": "Android App",
+  "url": "https://android.archivebox.io/",
+  "pages": [
+    "index.html",
+    "screenshots/index.html"
+  ]
+}

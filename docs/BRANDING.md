@@ -4,7 +4,7 @@ The website and README use the existing ArchiveBox organization logo unchanged, 
 
 The Android adaptive launcher foreground and in-app logo use the higher resolution, unchanged 450 × 450 source from `ios-archivebox/App/AppIcon.icon/Assets/ArchiveBox.png`. An Android monochrome launcher variant expresses the archive-box silhouette as a vector for themed icons.
 
-The shared navigation, footer, and `site-chrome.css` follow `ArchiveBox/monorepo/site-chrome`, via `electron-archivebox`. Android-specific navigation and product copy are maintained here. The shared ecosystem SVG marks retain their source form.
+The shared navigation, footer, icons and styles are independent copies in `.github/pages/base/`. Android-specific navigation and product copy are maintained here. The shared ecosystem SVG marks retain their source form.
 
 The landing page's small Android-inspired outline is inline SVG, drawn for this repository. The Android name belongs to Google. This project is not affiliated with Google.
 

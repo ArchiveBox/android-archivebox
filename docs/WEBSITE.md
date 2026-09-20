@@ -68,7 +68,7 @@ Each manifest uses this shape; values below describe the fields and are not a us
 ## Editing
 
 - `docs/index.html`: landing-page content. The builder injects real home/share captures.
-- `docs/header.html`, `docs/footer.html`, `docs/site-chrome.css`: shared ArchiveBox navigation and footer.
+- `.github/pages/base/`, `.github/pages/nav.html`, `docs/footer.html`: shared ArchiveBox navigation and footer.
 - `docs/style.css`: page and gallery presentation.
 - `docs/assets`: official logo, favicons, and generic ArchiveBox OG image; see [branding credits](BRANDING.md).
 - `scripts/build-site.mjs`: manifest validation and static generation.
