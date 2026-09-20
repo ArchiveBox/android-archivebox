@@ -74,10 +74,10 @@ class Discovery(context: Context, @Suppress("UNUSED_PARAMETER") api: ArchiveApi)
             lock?.acquire()
             manager.discoverServices("_archivebox._tcp.", NsdManager.PROTOCOL_DNS_SD, listener)
             (imported + saved).distinct().take(128).forEach { check(it, "Saved network / tailnet device") }
-            check("http://127.0.0.1:5759/", "This device")
-            check("http://archivebox:5759/", "Network name · archivebox")
+            check("http://127.0.0.1:5797/", "This device")
+            check("http://archivebox:5797/", "Network name · archivebox")
             val hosts = withContext(Dispatchers.IO) { lanHosts() }
-            hosts.forEach { check("http://$it:5759/", "Local network · port 5759") }
+            hosts.forEach { check("http://$it:5797/", "Local network · port 5797") }
             // Give mDNS responders a fixed discovery window. Child probes finish within their own deadlines.
             delay(5000)
         } finally {
@@ -100,7 +100,7 @@ class Discovery(context: Context, @Suppress("UNUSED_PARAMETER") api: ArchiveApi)
         } else hosts += text.split(Regex("[\\s,]+"))
         return hosts.filter(String::isNotEmpty).take(128).mapNotNull { host ->
             runCatching {
-                normalizeServer(if (host.count { it == ':' } > 1 && !host.contains("://") && !host.startsWith('[')) "http://[$host]:5759" else host)
+                normalizeServer(if (host.count { it == ':' } > 1 && !host.contains("://") && !host.startsWith('[')) "http://[$host]:5797" else host)
             }.getOrNull()
         }
     }

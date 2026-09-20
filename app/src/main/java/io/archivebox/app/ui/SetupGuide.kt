@@ -78,16 +78,16 @@ import androidx.compose.ui.unit.dp
         when (route) {
             "docker" -> {
                 GuideStep("1", "Start the server", "Install Docker on your computer or NAS, then run this command in its terminal. The named volume keeps your collection between container restarts.")
-                CommandCard("Docker command", "docker run -d --name archivebox \\\n  --restart unless-stopped \\\n  -v archivebox-data:/data \\\n  -p 5759:5797 \\\n  archivebox/archivebox:dev")
-                GuideStep("2", "Finish web setup", "On that computer, open http://localhost:5759/admin/. Create the first administrator and complete the setup wizard. Set the server address to a hostname or IP your phone can reach.")
-                GuideStep("3", "Connect your phone", "Return here with the computer's LAN or tailnet address, such as http://192.168.1.20:5759. Use Get an API key in Connection Settings, then test and save.")
+                CommandCard("Docker command", "docker run -d --name archivebox \\\n  --restart unless-stopped \\\n  -v archivebox-data:/data \\\n  -p 5797:5797 \\\n  archivebox/archivebox:dev")
+                GuideStep("2", "Finish web setup", "On that computer, open http://localhost:5797/admin/. Create the first administrator and complete the setup wizard. Set the server address to a hostname or IP your phone can reach.")
+                GuideStep("3", "Connect your phone", "Return here with the computer's LAN or tailnet address, such as http://192.168.1.20:5797. Use Get an API key in Connection Settings, then test and save.")
             }
             "python" -> {
                 GuideStep("1", "Install ArchiveBox", "Install uv on your computer, then run these commands in its terminal. The installer selects Python 3.13 and the ArchiveBox 0.9 release series.")
                 CommandCard("Install command", "uv tool install --python 3.13 \\\n  --prerelease explicit --upgrade \\\n  'archivebox>=0.9.0rc0,<0.10'")
                 GuideStep("2", "Create a collection and start it", "Choose a location with space for your archive. Run the server from this collection folder; keep its terminal open while you use the app.")
-                CommandCard("Start commands", "mkdir archivebox-data\ncd archivebox-data\narchivebox init\narchivebox server 0.0.0.0:5759")
-                GuideStep("3", "Finish setup and connect", "Open http://localhost:5759/admin/ on the server computer to create your administrator and finish setup. On your phone, connect using the computer's LAN or tailnet address and an API key.")
+                CommandCard("Start commands", "mkdir archivebox-data\ncd archivebox-data\narchivebox init\narchivebox server 0.0.0.0:5797")
+                GuideStep("3", "Finish setup and connect", "Open http://localhost:5797/admin/ on the server computer to create your administrator and finish setup. On your phone, connect using the computer's LAN or tailnet address and an API key.")
             }
             "mac" -> {
                 GuideStep("1", "Get ArchiveBox Server.app", "Download the official companion app from GitHub Releases on an Apple Silicon Mac, then move it to Applications and open it.")
@@ -104,7 +104,7 @@ import androidx.compose.ui.unit.dp
             Icon(Icons.Outlined.OpenInNew, null); Spacer(Modifier.width(8.dp)); Text(if (route == "mac") "Download the Mac server app" else "Open the full setup guide")
         }
         Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(18.dp)) {
-            Text("On your phone, localhost means this phone. Use your server computer's network address instead. Connection Settings can discover reachable servers on port 5759.", Modifier.padding(18.dp), style = MaterialTheme.typography.bodyMedium)
+            Text("On your phone, localhost means this phone. Use your server computer's network address instead. Connection Settings can discover reachable servers on port 5797.", Modifier.padding(18.dp), style = MaterialTheme.typography.bodyMedium)
         }
         Button(onClick = onConnect, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp).testTag("setup.connect")) { Text("I already have a server") }
     }

@@ -35,7 +35,7 @@ fun normalizeServer(input: String): String {
     }
     val builder = url.newBuilder()
     // A bare hostname is the common companion-server address; explicit URLs retain their ports.
-    if (!explicit && url.port == 80 && !text.substringBefore('/').contains(':')) builder.port(5759)
+    if (!explicit && url.port == 80 && !text.substringBefore('/').contains(':')) builder.port(5797)
     builder.encodedPath(url.encodedPath.trimEnd('/') + "/")
     return builder.build().toString()
 }

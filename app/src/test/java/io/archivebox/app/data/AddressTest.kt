@@ -5,12 +5,12 @@ import org.junit.Test
 import io.archivebox.app.ui.allowedArchiveOrigin
 
 class AddressTest {
-    @Test fun bareDeviceUsesCompanionPortAndExplicitUrlsRetainTheirPorts() {
-        assertEquals("http://archivebox.local:5759/", normalizeServer("archivebox.local"))
-        assertEquals("http://100.65.2.3:5759/", normalizeServer("100.65.2.3"))
+    @Test fun bareDeviceUsesArchiveBoxPortAndExplicitUrlsRetainTheirPorts() {
+        assertEquals("http://archivebox.local:5797/", normalizeServer("archivebox.local"))
+        assertEquals("http://100.65.2.3:5797/", normalizeServer("100.65.2.3"))
         assertEquals("https://archive.example/", normalizeServer("https://archive.example"))
         assertEquals("http://archive.example:8080/base/", normalizeServer("http://archive.example:8080/base"))
-        assertEquals("http://[fd7a:115c:a1e0::1]:5759/", normalizeServer("http://[fd7a:115c:a1e0::1]:5759"))
+        assertEquals("http://[fd7a:115c:a1e0::1]:5797/", normalizeServer("http://[fd7a:115c:a1e0::1]:5797"))
     }
 
     @Test fun serverCredentialsQueriesAndNonWebSchemesAreRejected() {
@@ -33,7 +33,7 @@ class AddressTest {
     @Test fun sameOriginChecksSchemeAndPortNotJustHostname() {
         assertTrue(sameOrigin("https://archive.example/base/", "https://archive.example/admin/"))
         assertFalse(sameOrigin("https://archive.example/", "http://archive.example/"))
-        assertFalse(sameOrigin("http://archive.example:5759/", "http://archive.example:8080/"))
+        assertFalse(sameOrigin("http://archive.example:5797/", "http://archive.example:8080/"))
         assertFalse(sameOrigin("https://archive.example/", "https://archive.example.attacker.test/"))
     }
 
@@ -44,18 +44,18 @@ class AddressTest {
     }
 
     @Test fun replayNavigationKeepsSnapshotSubdomainsInsideTheConfiguredServer() {
-        val server = "https://api.archive.example:5759/"
-        val admin = "https://admin.archive.example:5759/admin/"
+        val server = "https://api.archive.example:5797/"
+        val admin = "https://admin.archive.example:5797/admin/"
         assertTrue(allowedArchiveOrigin(admin, server, admin))
         assertTrue(allowedArchiveOrigin(server, server, admin))
-        assertTrue(allowedArchiveOrigin("https://snap-012345abcdef.archive.example:5759/index.html", server, admin))
+        assertTrue(allowedArchiveOrigin("https://snap-012345abcdef.archive.example:5797/index.html", server, admin))
         for (url in listOf(
-            "http://snap-012345abcdef.archive.example:5759/",
+            "http://snap-012345abcdef.archive.example:5797/",
             "https://snap-012345abcdef.archive.example/",
-            "https://snap-012345abcdef.archive.example.attacker.test:5759/",
-            "https://other.archive.example:5759/",
-            "https://snap-012345abcdeg.archive.example:5759/",
-            "https://user:password@admin.archive.example:5759/admin/",
+            "https://snap-012345abcdef.archive.example.attacker.test:5797/",
+            "https://other.archive.example:5797/",
+            "https://snap-012345abcdeg.archive.example:5797/",
+            "https://user:password@admin.archive.example:5797/admin/",
             "javascript:alert(1)",
         )) assertFalse(url, allowedArchiveOrigin(url, server, admin))
         assertFalse(allowedArchiveOrigin("https://snap-012345abcdef.example/", "https://web.admin.example/", "https://admin.admin.example/admin/"))

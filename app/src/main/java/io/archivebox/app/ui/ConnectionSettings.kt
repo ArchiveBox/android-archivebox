@@ -120,7 +120,7 @@ import kotlinx.coroutines.launch
                 Text("Connect over your home network, Tailscale, or the internet. Use the address you open in a browser.")
             }
         }
-        OutlinedTextField(server, { editServer(it) }, enabled = !busy, label = { Text("Server URL") }, placeholder = { Text("http://archivebox.local:5759") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), singleLine = true, modifier = Modifier.fillMaxWidth().testTag("connection.url"), leadingIcon = { Icon(Icons.Outlined.Link, null) })
+        OutlinedTextField(server, { editServer(it) }, enabled = !busy, label = { Text("Server URL") }, placeholder = { Text("http://archivebox.local:5797") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), singleLine = true, modifier = Modifier.fillMaxWidth().testTag("connection.url"), leadingIcon = { Icon(Icons.Outlined.Link, null) })
         OutlinedTextField(token, { token = it; status = null }, enabled = !busy, label = { Text("API key") }, singleLine = true, visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth().testTag("connection.token"), leadingIcon = { Icon(Icons.Outlined.Key, null) }, trailingIcon = { IconButton(onClick = { showToken = !showToken }) { Icon(if (showToken) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (showToken) "Hide API key" else "Show API key") } })
         TextButton(onClick = {
             runCatching { normalizeServer(server) }.onSuccess { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("${it.trimEnd('/')}/admin/api/apitoken/"))) }.onFailure { error = it.message }
@@ -134,7 +134,7 @@ import kotlinx.coroutines.launch
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         SectionTitle("Find a nearby server")
-        Text("Nearby servers on port 5759 appear automatically. Android cannot read other apps' Tailscale peer lists. With your VPN connected, add peer hostnames or paste tailscale status --json output; discovered hosts are remembered for future scans.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Nearby servers on port 5797 appear automatically. Android cannot read other apps' Tailscale peer lists. With your VPN connected, add peer hostnames or paste tailscale status --json output; discovered hosts are remembered for future scans.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(hints, { hints = it }, label = { Text("Tailnet hostnames or status JSON") }, placeholder = { Text("archivebox.tailnet-name.ts.net") }, supportingText = { Text("Optional · separate addresses with commas, or paste status JSON") }, maxLines = 4, modifier = Modifier.fillMaxWidth().testTag("connection.hints"))
         OutlinedButton(onClick = { scan() }, enabled = !scanning, modifier = Modifier.fillMaxWidth().testTag("connection.discover")) {
             Icon(Icons.Outlined.Radar, null); Spacer(Modifier.width(8.dp)); Text(if (scanning) "Looking for servers…" else "Discover servers")
