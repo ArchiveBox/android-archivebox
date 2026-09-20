@@ -18,7 +18,7 @@ const canonical = new URL(process.env.SITE_URL || 'https://android.archivebox.io
 if (!canonical.pathname.endsWith('/')) canonical.pathname += '/';
 const base = `/${option('--baseurl', canonical.pathname).replace(/^\/+|\/+$/g, '')}/`.replace('//', '/');
 const allowMissing = process.argv.includes('--allow-missing-screenshots') && !process.argv.includes('--require-screenshots') && !process.env.CI;
-const required = ['onboarding', 'setup-docker', 'connections', 'discovery', 'library', 'search', 'snapshot', 'add', 'tags', 'share', 'share-saved', 'activity', 'settings', 'server-browser', 'home', 'crawls', 'scheduled-crawls', 'archive-results', 'server-tags', 'ai-agent', 'users', 'personas', 'api-keys', 'webhooks', 'processes', 'machines', 'network-interfaces', 'binaries', 'plugins', 'workers', 'logs', 'widget'];
+const required = ['onboarding', 'setup-docker', 'dark-mode', 'tablet', 'connections', 'discovery', 'library', 'search', 'snapshot', 'add', 'tags', 'share', 'share-saved', 'activity', 'settings', 'server-browser', 'home', 'crawls', 'scheduled-crawls', 'archive-results', 'server-tags', 'ai-agent', 'users', 'personas', 'api-keys', 'webhooks', 'processes', 'machines', 'network-interfaces', 'binaries', 'plugins', 'workers', 'logs', 'widget'];
 const escape = value => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 
 async function loadCaptures(captureRun) {
@@ -53,7 +53,11 @@ async function main() {
   const captureRun = captureRunPath ? JSON.parse(await fs.readFile(path.resolve(root, captureRunPath), 'utf8')) : null;
   if (captureRun && captureRun.pending !== true && (!/^[a-f0-9]{40}$/.test(captureRun.commit) || !/^https:\/\/github\.com\/ArchiveBox\/android-archivebox\/actions\/runs\/[1-9]\d*$/.test(captureRun.runURL))) throw new Error('Invalid restored capture run metadata');
   const manifest = await loadCaptures(captureRun);
-  const captures = manifest?.screenshots || [];
+  const displayOrder = ['home', 'share', 'share-saved', 'search', 'library', 'snapshot', 'add', 'tags', 'connections', 'discovery', 'onboarding', 'setup-docker', 'widget', 'dark-mode', 'tablet', 'activity', 'server-browser', 'crawls', 'scheduled-crawls', 'archive-results', 'server-tags', 'ai-agent', 'users', 'personas', 'api-keys', 'webhooks', 'processes', 'machines', 'network-interfaces', 'binaries', 'plugins', 'workers', 'logs', 'settings'];
+  const captures = [...(manifest?.screenshots || [])].sort((left, right) => {
+    const rank = id => displayOrder.includes(id) ? displayOrder.indexOf(id) : displayOrder.length;
+    return rank(left.id) - rank(right.id);
+  });
   const revision = execFileSync('git', ['rev-parse', 'HEAD'], {cwd: root, encoding: 'utf8'}).trim();
   const [header, footer, landing] = await Promise.all(['header.html', 'footer.html', 'index.html'].map(file => fs.readFile(path.join(root, 'docs', file), 'utf8')));
   const description = 'Save the web you want to keep. Share links with tags, search your archive, and connect to your own ArchiveBox server from Android.';

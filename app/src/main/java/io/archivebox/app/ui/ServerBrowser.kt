@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.view.ViewGroup
 import android.webkit.*
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -17,11 +18,23 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.archivebox.app.data.*
+import io.archivebox.app.BuildConfig
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import java.net.URI
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+
+internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String): Boolean {
+    val target = url.toHttpUrlOrNull() ?: return false
+    if (target.username.isNotEmpty() || target.password.isNotEmpty()) return false
+    if (sameOrigin(url, server) || sameOrigin(url, adminUrl)) return true
+    val source = server.toHttpUrlOrNull() ?: return false
+    val base = source.host.replace(Regex("^(admin|web|api)\\."), "")
+    return target.scheme == source.scheme && target.port == source.port &&
+        Regex("snap-[0-9a-f]{12}\\.${Regex.escape(base)}").matches(target.host)
+}
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable internal fun ServerBrowser(repository: ArchiveRepository, connection: Connection, path: String) {
@@ -63,9 +76,15 @@ import java.net.URI
             AndroidView(
                 modifier = Modifier.weight(1f).fillMaxWidth().testTag(if (ready && error == null) "browser.ready" else "browser.loading"),
                 factory = { ctx ->
+                    WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
                     WebView(ctx).apply {
                         browser = this
+                        // A wrap-content WebView reports a zero CSS percentage-height viewport.
+                        // Server replay frames and dialogs need the actual bounded Compose viewport.
+                        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                         settings.javaScriptEnabled = true
+                        settings.useWideViewPort = true
+                        settings.loadWithOverviewMode = true
                         settings.domStorageEnabled = true
                         settings.cacheMode = WebSettings.LOAD_NO_CACHE
                         settings.allowFileAccess = false
@@ -78,7 +97,10 @@ import java.net.URI
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                                 val url = request.url.toString()
-                                if (sameOrigin(url, authenticated.adminUrl) || sameOrigin(url, connection.server)) return false
+                                if (allowedArchiveOrigin(url, connection.server, authenticated.adminUrl)) return false
+                                // Replay may embed external HTTP(S) content. Let the browser enforce its
+                                // same-origin policy; the administrator cookie remains host-only.
+                                if (!request.isForMainFrame && request.url.scheme in listOf("https", "http")) return false
                                 if (request.isForMainFrame && request.url.scheme in listOf("https", "http")) {
                                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, request.url)) }
                                 }

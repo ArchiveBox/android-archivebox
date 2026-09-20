@@ -136,6 +136,11 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
         }
     }
 
+    suspend fun tagSuggestions(connection: Connection, query: String): List<String> {
+        val result = request(connection.server, "api/v1/core/tags/autocomplete/", connection.token, query = mapOf("q" to query))
+        return normalizeTags(result.getJSONArray("tags").objects().map { it.getString("name") })
+    }
+
     suspend fun personas(connection: Connection): List<Persona> {
         val result = mutableListOf<Persona>()
         while (true) {
@@ -183,7 +188,7 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
         require(target.username.isEmpty() && target.password.isEmpty() && target.query == null && target.fragment == null &&
             target.encodedPath.endsWith("/admin/")) { "Server returned an invalid administrator address." }
         // ArchiveBox may separate web and admin subdomains, but cannot send session credentials to an arbitrary host.
-        val baseHost = source.host.removePrefix("web.").removePrefix("admin.")
+        val baseHost = source.host.replace(Regex("^(web|admin|api)\\."), "")
         require(target.scheme == source.scheme && target.port == source.port &&
             target.host in setOf(source.host, "admin.$baseHost")) { "Server returned a browser session for an unrelated address." }
         val cookie = result.getJSONObject("cookie")

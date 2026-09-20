@@ -44,6 +44,7 @@ internal class SubmissionState(initialText: String, initialPersona: String) : Vi
     var tags by model.tags
     var tagDraft by model.tagDraft
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var serverTags by remember(connection.server) { mutableStateOf<List<String>>(emptyList()) }
     var personas by remember { mutableStateOf<List<Persona>>(emptyList()) }
     var persona by model.persona
     var personaMenu by remember { mutableStateOf(false) }
@@ -59,6 +60,14 @@ internal class SubmissionState(initialText: String, initialPersona: String) : Vi
     LaunchedEffect(connection.server) {
         suggestions = repository.recentTags(connection.server)
         try { personas = repository.api.personas(connection) } catch (_: Exception) { /* Server default remains usable when persona listing is restricted. */ }
+    }
+    val tagQuery = tagDraft.substringAfterLast(',').trim()
+    LaunchedEffect(connection, tagQuery) {
+        serverTags = emptyList()
+        if (tagQuery.isNotEmpty()) kotlinx.coroutines.delay(200)
+        try { serverTags = repository.api.tagSuggestions(connection, tagQuery) }
+        catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (_: Exception) { /* Manual tags and device history remain available offline. */ }
     }
     suspend fun saveTags() {
         val accepted = receipt ?: return
@@ -101,10 +110,15 @@ internal class SubmissionState(initialText: String, initialPersona: String) : Vi
                 tags.forEach { tag -> InputChip(selected = true, onClick = { if (!busy) { tags = tags - tag; tagsSaved = false } }, enabled = !busy, label = { Text(tag) }, trailingIcon = { Icon(Icons.Outlined.Close, "Remove tag $tag", Modifier.size(16.dp)) }, modifier = Modifier.testTag("tag.$tag")) }
             }
             OutlinedTextField(tagDraft, { tagDraft = it }, label = { Text("Add tags, separated by commas") }, singleLine = true, enabled = !busy, keyboardActions = KeyboardActions(onDone = { addDraft() }), modifier = Modifier.fillMaxWidth().testTag("add.tags"), trailingIcon = { IconButton(onClick = { addDraft() }, enabled = tagDraft.isNotBlank() && !busy, modifier = Modifier.testTag("add.tagsConfirm")) { Icon(Icons.Outlined.Add, "Add tags") } })
-            if (suggestions.any { it !in tags }) {
-                Text("Recently used", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val matchingSuggestions = normalizeTags(suggestions.filter { it.contains(tagQuery, ignoreCase = true) } + serverTags)
+                .filter { suggested -> tags.none { it.equals(suggested, ignoreCase = true) } }.take(8)
+            if (matchingSuggestions.isNotEmpty()) {
+                Text("Suggested tags", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.testTag("add.tagSuggestions")) {
-                    suggestions.filter { it !in tags }.forEach { tag -> SuggestionChip(onClick = { tags = tags + tag; tagsSaved = false }, enabled = !busy, label = { Text(tag) }, icon = { Icon(Icons.Outlined.Add, "Add suggested tag $tag", Modifier.size(16.dp)) }) }
+                    matchingSuggestions.forEach { tag -> SuggestionChip(onClick = {
+                        tags = normalizeTags(tags + normalizeTags(tagDraft.substringBeforeLast(',', "")) + tag)
+                        tagDraft = ""; tagsSaved = false
+                    }, enabled = !busy, label = { Text(tag) }, icon = { Icon(Icons.Outlined.Add, "Add suggested tag $tag", Modifier.size(16.dp)) }, modifier = Modifier.testTag("suggestedTag.$tag")) }
                 }
             }
             if (receipt == null) {

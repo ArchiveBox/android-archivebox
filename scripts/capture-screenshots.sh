@@ -23,7 +23,7 @@ adb install -r "$test_apk"
 api_token=$(cat "$server/api-token")
 if [[ "${GITHUB_ACTIONS:-}" == true ]]; then printf '::add-mask::%s\n' "$api_token"; fi
 adb shell am instrument -w -r \
-    -e class io.archivebox.app.ArchiveBoxJourneyTest,io.archivebox.app.WidgetJourneyTest \
+    -e class io.archivebox.app.ArchiveBoxJourneyTest,io.archivebox.app.WidgetJourneyTest,io.archivebox.app.VisualProfilesTest \
     -e serverUrl http://127.0.0.1:5759 \
     -e apiToken "$api_token" \
     io.archivebox.app.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/instrumentation.log
@@ -34,8 +34,12 @@ if ! grep -Eq '^OK \([1-9][0-9]* test' artifacts/instrumentation.log; then
     adb pull /sdcard/Android/data/io.archivebox.app/files/screenshots/. artifacts/failed-screenshots/ || true
     exit 1
 fi
-adb pull /sdcard/Android/data/io.archivebox.app/files/screenshots/. "$output/"
-export CAPTURE_OUTPUT="$output"
+# Validate a fresh pull before copying anything into a potentially reused output directory.
+# A missing new screenshot must never be replaced silently by an earlier run's PNG.
+capture_stage=$(mktemp -d "${TMPDIR:-/tmp}/archivebox-android-capture.XXXXXX")
+trap 'rm -rf "$capture_stage"' EXIT
+adb pull /sdcard/Android/data/io.archivebox.app/files/screenshots/. "$capture_stage/"
+export CAPTURE_OUTPUT="$capture_stage"
 export CAPTURE_COMMIT
 CAPTURE_COMMIT=$(git rev-parse HEAD)
 uv run --no-project python - <<'PY'
@@ -43,6 +47,8 @@ import datetime, hashlib, json, os, pathlib, struct
 root = pathlib.Path(os.environ['CAPTURE_OUTPUT'])
 metadata = json.loads((root / 'device.json').read_text())
 labels = {
+    'dark-mode': ('A quieter view', 'Use the real Android dark appearance across the native app.'),
+    'tablet': ('Room for your archive', 'Use adaptive navigation on an actual tablet-size Android display.'),
     'home': ('ArchiveBox at home', 'Navigate collection, server tools, and helpful resources.'),
     'crawls': ('Your crawls', 'Inspect actual crawl history on your server.'),
     'scheduled-crawls': ('Scheduled crawls', 'Manage recurring captures on the server.'),
@@ -93,3 +99,4 @@ if os.environ.get('GITHUB_RUN_ID'):
 (root / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
 print(f'Validated {len(shots)} actual Android screenshots.')
 PY
+cp "$capture_stage"/* "$output/"

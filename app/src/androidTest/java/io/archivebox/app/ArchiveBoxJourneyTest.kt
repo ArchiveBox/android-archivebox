@@ -98,12 +98,22 @@ class ArchiveBoxJourneyTest {
         click("guide.back")
         click("setup.connect", scroll = true)
         fill("connection.url", server)
-        fill("connection.token", token)
+        fill("connection.token", "invalid-android-acceptance-key")
         click("connection.save", scroll = true)
         if (Build.VERSION.SDK_INT >= 37) {
             val allow = device.wait(Until.findObject(By.res("com.android.permissioncontroller", "permission_allow_button")), 5_000)
             requireNotNull(allow) { "Expected the real Android local network permission prompt" }.click()
         }
+        compose.waitUntil(30_000) { compose.onAllNodesWithTag("error").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("This API key is invalid or expired.").assertExists()
+        compose.onAllNodesWithTag("connection.status").assertCountEquals(0)
+        node("tab.Search").performClick()
+        await("connect.open")
+        compose.onAllNodesWithTag("search.query").assertCountEquals(0)
+        click("connect.open")
+        fill("connection.url", server)
+        fill("connection.token", token)
+        click("connection.save", scroll = true)
         await("connection.status")
         compose.onNodeWithText("Connected.", substring = true).assertExists()
         node("connection.url").performScrollTo()
@@ -132,12 +142,17 @@ class ArchiveBoxJourneyTest {
         compose.onNode(hasText("Open saved page") and hasAnyAncestor(hasTestTag("search.result.$exampleId"))).performClick()
         await("browser.ready")
         compose.onAllNodesWithTag("error").assertCountEquals(0)
-        assertTrue("The snapshot must render actual archived content", device.wait(Until.hasObject(By.textContains("Example Domain")), 10_000))
+        val archivedImage = device.wait(Until.findObject(By.desc("Screenshot of page")), 10_000)
+        assertNotNull("The snapshot must display the real archived image", archivedImage)
+        assertTrue("Archived content must have a visible replay viewport", archivedImage!!.visibleBounds.height() > 300)
         shot("snapshot")
 
         click("tab.Add")
         fill("add.urls", "https://example.com")
         shot("add")
+        fill("add.tags", "ref")
+        click("suggestedTag.reference", scroll = true)
+        node("tag.reference").assertExists()
         fill("add.tags", "research")
         click("add.tagsConfirm")
         shot("tags")
@@ -153,6 +168,8 @@ class ArchiveBoxJourneyTest {
         await("share.sheet")
         node("add.urls").assertTextContains(sharedUrl, substring = true)
         fill("add.tags", "android-share, research")
+        click("add.tagsConfirm")
+        node("add.save").performScrollTo().assertIsDisplayed()
         shot("share")
         click("add.save", scroll = true)
         await("share.accepted")
@@ -202,7 +219,16 @@ class ArchiveBoxJourneyTest {
             "Network Interfaces" to "network-interfaces", "Binaries" to "binaries",
             "Plugins" to "plugins", "Workers" to "workers", "Logs" to "logs",
         )
-        for ((name, id) in routes) { route(name); shot(id) }
+        for ((name, id) in routes) {
+            route(name)
+            if (id == "ai-agent") {
+                val providerSetup = device.wait(Until.findObject(By.text("Set up your preferred model provider first")), 10_000)
+                if (providerSetup == null) { shot("failure"); device.dumpWindowHierarchy(File(output, "failure.xml")) }
+                assertNotNull("The real AI provider setup must render", providerSetup)
+                assertTrue("AI setup must have a readable viewport", providerSetup!!.visibleBounds.height() > 30)
+            }
+            shot(id)
+        }
         click("tab.Settings")
         node("setup.reopen").performScrollTo()
         shot("settings")

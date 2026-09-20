@@ -118,6 +118,7 @@ jobs:
           path: |
             artifacts/instrumentation.log
             artifacts/logcat.txt
+            artifacts/failed-screenshots/
             ${{ runner.temp }}/archivebox-capture/server.log
 
   site:

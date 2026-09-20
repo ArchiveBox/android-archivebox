@@ -1,35 +1,44 @@
 # Validation
 
-This repository is under initial implementation. Source availability and a designed CI workflow are not evidence that device flows or published releases have passed.
+## Verified locally — 2026-09-20
 
-Before calling the first release accepted, record the actual commit, toolchain, device/API level, backend version, commands, results, and screenshots for:
+The app was exercised against a real ArchiveBox collection, with normal CLI initialization, API authentication, actual Chrome/wget captures of `example.com` and `archivebox.io`, and the server's own administration pages. No server responses, capture tools, or Android handlers were mocked.
 
-- Debug and signed release build, unit tests, Android lint, and instrumentation tests.
-- A real ArchiveBox server connection and authentication, including rejected credentials.
-- External Android sharing, existing/new/recent tags, persona selection, successful server submission, and saved server data.
-- Native search, pagination, original/archive links, server collection and administration pages.
-- LAN discovery on port 5759 and reachable tailnet candidates; physical network acceptance separately from an emulator.
-- First-run guide, existing-server shortcut, dismissal/reopen, theme changes, accessibility, phone and tablet layout.
-- Signed APK installation and update with the same signing key, plus AAB generation.
-- Main-branch version bump, release assets, screenshot refresh, and deployed GitHub Pages navigation on desktop and mobile.
+Environment: macOS ARM64; JDK 25 locally (CI uses JDK 21); Gradle 9.3.1; Android Gradle Plugin 9.1.1; Kotlin 2.2.10; Compose BOM 2026.09.00. The API 37 Google APIs ARM64 emulator used a 1080 × 2400 phone display at 420 dpi, plus a 1280 × 800 / 160 dpi tablet profile. App minimum API level is 28.
 
-## Evidence so far
+The local backend checkout was `7a5ad4c99ad796fd90aea7535e983297cb9f28b5`. Hosted captures use the pinned revision in [ci.yml](../.github/workflows/ci.yml), recorded in each screenshot manifest.
 
-No completed Android device acceptance is recorded in this document yet. The implementation team will add verified results as checks finish. A first Google Play release additionally needs a real developer account, listing, production signing setup, policy declarations, and review; no Play listing is claimed.
+### Build and automated device journeys
 
-### Build and signing — 2026-09-20
+- `./gradlew lintDebug testDebugUnitTest assembleDebug assembleDebugAndroidTest` passed. Seven unit tests exercise real address/URL/tag parsing and replay-origin boundaries.
+- The two core instrumentation journeys passed in 80.621 seconds and produced 32 real device captures. They cover rejected credentials without saving, successful connection, automatic discovery of the real server at the emulator's LAN address on port 5759, server tag autocomplete, native search, and visible archived-image rendering.
+- A real exported Android share intent submitted a unique URL. Tests verified persisted server snapshot/tag data, rotation, tag editing, and Undo removing that submission while preserving earlier captures.
+- Tests exercised every collection/administration route, a readable AI provider-setup dialog, changing server origin without retaining its API key, the native Docker setup guide, and both actions of a widget installed through Android's actual widget picker.
+- The release capture suite additionally includes automated dark-mode and tablet profiles, bringing required coverage to 34 images. Their per-revision result is recorded by the workflow and capture manifest.
 
-The local build uses Gradle 9.3.1, Android Gradle Plugin 9.1.1, Kotlin 2.2.10, Compose BOM 2026.09.00, and Android SDK 37, with minimum API level 28 (Android 9).
+Rendering checks exposed a real WebView defect: without explicit `MATCH_PARENT` layout parameters, CSS percentage-height documents and replay frames collapsed to zero height. The app now supplies the bounded viewport; device screenshots and the rendered-image bounds verify the correction. The local emulator's automatic software GPU also produced stale duplicated tiles despite correct Chromium rendering; restarting with the host GPU corrected the actual screen output without disabling app hardware acceleration.
 
-- Six parser unit tests passed against the real parsing code.
-- Android lint and the debug build passed.
-- The signed release build produced an approximately 2.7 MB APK and 3.8 MB Android App Bundle.
-- The release signing certificate SHA-256 fingerprint is `dd63b33570be7d6c8076999c802039b711ec0cbeaf4a0a5dc0277ed5eb229dfd`.
+### Signed APK installation and update
 
-These results verify compilation, static checks, the tested parsers, and artifact signing. The emulator workflow is still being exercised and repaired; end-to-end runtime acceptance, all 31 gallery captures, install/update acceptance, and release/Pages publication have not yet been accepted.
+Release minification/resource shrinking, `assembleRelease`, and `bundleRelease` passed. APK signature verification and AAB `jarsigner -verify` passed; artifacts are approximately 2.8 MB and 3.9 MB respectively.
 
-The first hosted workflow encountered an Android SDK setup failure. Its configuration was corrected to `android-actions/setup-android@v4.0.4` and Android API 37.0 tooling; the replacement pipeline is running. See the [live workflow](https://github.com/ArchiveBox/android-archivebox/actions/workflows/ci.yml) for its current result.
+Installed a signed version `0.0.9` / code `9`, connected through the real UI, then installed version `0.1.0` / code `1000` over it using `adb install -r`. The encrypted connection survived the update. The updated release successfully loaded native search and the archived page, accepted an external share intent, saved a unique URL with a `signed-release` tag, and removed it through the visible Undo confirmation. Real API reads verified exactly one saved snapshot and then zero after Undo. Dark phone appearance and the tablet navigation rail were visually inspected. No Android runtime crash was logged during this smoke test.
 
-### Website preview — 2026-09-20
+Permanent signing certificate SHA-256:
 
-Built the local site with `node scripts/build-site.mjs --baseurl / --allow-missing-screenshots` and opened it in real headless Google Chrome through Playwright. The landing page and empty-gallery preview were visually inspected at 1440 × 1100 and 390 × 844; neither had horizontal overflow or JavaScript page errors. The Apps menu and Escape dismissal and FAQ expansion worked. This validates the local layout with explicitly pending captures, not the gallery with final app screenshots or a deployed Pages site.
+```text
+dd63b33570be7d6c8076999c802039b711ec0cbeaf4a0a5dc0277ed5eb229dfd
+```
+
+### Website and release evidence
+
+The populated 32-image local site was opened in actual Google Chrome at 1440 × 1100 and 390 × 844. All images and anchors loaded; there was no horizontal overflow, JavaScript error, or failed HTTP request. Apps-menu navigation, Escape dismissal, FAQ expansion, and gallery links passed. The corrected snapshot, AI dialog, and Activity screenshots were visually reviewed.
+
+The public site is [android.archivebox.io](https://android.archivebox.io/), with HTTPS enforced. Hosted build/release acceptance is recorded per revision in [GitHub Actions](https://github.com/ArchiveBox/android-archivebox/actions/workflows/ci.yml). A successful release includes the signed APK/AAB and capture archive; the [published gallery manifest](https://android.archivebox.io/screenshots/manifest.json) records the exact app version, source commit, backend revision, workflow, dimensions, and PNG checksums. Local validation does not substitute for that hosted record.
+
+## Limits of this evidence
+
+- No physical Android phone or tablet, Android 9 device, or physical Wi-Fi/router discovery run was used. API 37 emulator discovery and configurable tailnet candidates are implemented; live discovery across a physical tailnet has not been accepted. Android cannot read the separate Tailscale app's private peer inventory.
+- The AI page check validates the real provider-setup interface. It does not configure a paid model provider or send a model request.
+- Replay-origin unit tests cover split-host navigation rules; a production HTTPS deployment with wildcard snapshot subdomains was not used in this local device run.
+- Google Play publication requires an actual developer account, listing, signing enrollment, declarations, and review. GitHub beta distribution is the configured release route; no Play listing is claimed.

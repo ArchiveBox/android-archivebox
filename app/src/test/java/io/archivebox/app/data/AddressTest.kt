@@ -2,6 +2,7 @@ package io.archivebox.app.data
 
 import org.junit.Assert.*
 import org.junit.Test
+import io.archivebox.app.ui.allowedArchiveOrigin
 
 class AddressTest {
     @Test fun bareDeviceUsesCompanionPortAndExplicitUrlsRetainTheirPorts() {
@@ -40,5 +41,23 @@ class AddressTest {
         assertTrue(ArchiveApi.validId("00000000-0000-4000-8000-000000000001"))
         assertTrue(ArchiveApi.validId("00000000000040008000000000000001"))
         for (id in listOf("../admin", "a/b", "snapshot", "")) assertFalse(ArchiveApi.validId(id))
+    }
+
+    @Test fun replayNavigationKeepsSnapshotSubdomainsInsideTheConfiguredServer() {
+        val server = "https://api.archive.example:5759/"
+        val admin = "https://admin.archive.example:5759/admin/"
+        assertTrue(allowedArchiveOrigin(admin, server, admin))
+        assertTrue(allowedArchiveOrigin(server, server, admin))
+        assertTrue(allowedArchiveOrigin("https://snap-012345abcdef.archive.example:5759/index.html", server, admin))
+        for (url in listOf(
+            "http://snap-012345abcdef.archive.example:5759/",
+            "https://snap-012345abcdef.archive.example/",
+            "https://snap-012345abcdef.archive.example.attacker.test:5759/",
+            "https://other.archive.example:5759/",
+            "https://snap-012345abcdeg.archive.example:5759/",
+            "https://user:password@admin.archive.example:5759/admin/",
+            "javascript:alert(1)",
+        )) assertFalse(url, allowedArchiveOrigin(url, server, admin))
+        assertFalse(allowedArchiveOrigin("https://snap-012345abcdef.example/", "https://web.admin.example/", "https://admin.admin.example/admin/"))
     }
 }
