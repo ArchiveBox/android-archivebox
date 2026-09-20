@@ -1,0 +1,18 @@
+README.md
+  h_923c208e183a7b 30,50,52
+docs/PRIVACY.md
+  h_923c208e183a7b 7
+docs/index.html
+  h_923c208e183a7b 20,27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4ffca470fa646dce2d479445dfa7dce5e57fd7e0",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
