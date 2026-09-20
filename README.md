@@ -27,7 +27,7 @@
 - 🏷️ **A place for every link.** Add tags as you save, with suggestions from your server and recent tags.
 - 🔎 **Find your way back.** Search saved pages, open archived captures, and share original or archived links.
 - 🗂️ **Your whole collection.** Open snapshots, crawls, tags, personas, users, and administration tools in the app.
-- 🔑 **Your server, your choice.** Connect by URL and API key; look for nearby servers on port `5759` or check tailnet hostnames.
+- 🔑 **Your server, your choice.** Connect by URL and API key; look for nearby servers on port `5797` or check tailnet hostnames.
 - 🎨 **At home on Android.** Kotlin, Jetpack Compose, Material 3, light and dark themes, and navigation that adapts to wider screens.
 
 ## Get started
@@ -47,9 +47,9 @@ Android intents support incoming shared text and app links. Long-press the launc
 
 ## Connect nearby or over your tailnet
 
-**Connection Settings → Discover servers** checks nearby candidates on port **5759**. Discovery identifies servers; it does not send your API key to discovered addresses. Select a result, then authenticate with that server.
+**Connection Settings → Discover servers** checks nearby candidates on port **5797**. Discovery identifies servers; it does not send your API key to discovered addresses. Select a result, then authenticate with that server.
 
-For Tailscale, connect your Android device to your tailnet first and enter a server’s MagicDNS name or `100.x.y.z` address as a discovery hint, or paste the output of `tailscale status --json` from a computer on your tailnet. The app cannot retrieve a complete peer list from the separate Tailscale Android app. Only reachable candidates can be discovered, and a firewall or VPN policy can block access. You can always enter a server address directly, including a different port.
+For Tailscale, connect your Android device to your tailnet first and enter a server’s MagicDNS name or `100.x.y.z` address as a discovery hint, or paste the output of `tailscale status --json` from a computer on your tailnet. Only reachable candidates can be discovered, and a firewall or VPN policy can block access. You can always enter a server address directly, including a different port.
 
 Prefer HTTPS for servers outside a trusted private network. See [privacy and connection behavior](docs/PRIVACY.md).
 
