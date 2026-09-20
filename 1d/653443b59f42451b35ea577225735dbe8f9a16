@@ -1,0 +1,24 @@
+app/src/androidTest/java/io/archivebox/app/ArchiveBoxJourneyTest.kt
+  h_923c208e183a7b 7,26,90-92,149
+app/src/androidTest/java/io/archivebox/app/WidgetJourneyTest.kt
+  h_923c208e183a7b 1-44
+docs/RELEASES.md
+  h_923c208e183a7b 50,52,54
+scripts/build-site.mjs
+  h_923c208e183a7b 21
+scripts/capture-screenshots.sh
+  h_923c208e183a7b 26,90
+scripts/start-screenshot-server.sh
+  h_923c208e183a7b 25,76-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "1d653443b59f42451b35ea577225735dbe8f9a16",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
