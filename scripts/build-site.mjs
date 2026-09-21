@@ -93,6 +93,7 @@ async function main() {
   await fs.writeFile(path.join(output, 'screenshots', 'index.html'), page('Screenshots · ArchiveBox for Android', gallery, 'screenshots/'));
   await fs.writeFile(path.join(output, '.nojekyll'), '');
   await fs.writeFile(path.join(output, 'CNAME'), canonical.hostname + '\n');
+  await fs.writeFile(path.join(output, 'robots.txt'), 'User-agent: *\nAllow: /\n\nSitemap: https://android.archivebox.io/sitemap.xml\n');
   await fs.writeFile(path.join(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escape(canonical)}</loc></url><url><loc>${escape(canonical)}es/</loc></url><url><loc>${escape(canonical)}fr/</loc></url><url><loc>${escape(canonical)}zh/</loc></url><url><loc>${escape(canonical)}ru/</loc></url><url><loc>${escape(canonical)}ar/</loc></url><url><loc>${escape(canonical)}screenshots/</loc></url></urlset>\n`);
   await fs.writeFile(path.join(output, 'build.json'), JSON.stringify({revision, captureRevision: manifest?.commit || null, generatedAt: new Date().toISOString(), screenshots: captures.length, appVersion: manifest?.appVersion || null}, null, 2) + '\n');
   execFileSync('uv', ['run', '--no-project', 'python', path.join(root, '.github/pages/site.py'), 'render', output, '--baseurl', base], { cwd: root, stdio: 'inherit' });
