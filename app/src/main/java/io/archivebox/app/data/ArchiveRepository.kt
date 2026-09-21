@@ -69,6 +69,22 @@ class ArchiveRepository(context: Context) {
         }
     }
 
+    suspend fun selectConnection(id: String) = withContext(Dispatchers.IO) {
+        writeLock.withLock {
+            val current = readRegistry()
+            val selected = requireNotNull(current.servers.firstOrNull { it.id == id }) { "This connection is no longer saved." }
+            require(selected.token.isNotBlank()) { "Enter your API key." }
+            persistRegistry(current.copy(active_server_id = id))
+        }
+    }
+
+    suspend fun removeConnection(id: String) = withContext(Dispatchers.IO) {
+        writeLock.withLock {
+            persistRegistry(readRegistry().remove(id))
+            prefs.edit().remove("tags.$id").apply()
+        }
+    }
+
     fun dismissSetup() {
         prefs.edit().putBoolean("setupDismissed", true).apply()
         _setupDismissed.value = true

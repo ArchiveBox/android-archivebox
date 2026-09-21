@@ -3,6 +3,10 @@ package io.archivebox.app.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -71,9 +75,21 @@ internal class NavigationState : ViewModel() {
     val scope = rememberCoroutineScope()
     var screen by rememberSaveable { mutableStateOf("Archive") }
     var showGuide by rememberSaveable { mutableStateOf(false) }
+    var discoverOnOpen by rememberSaveable { mutableStateOf(false) }
     var browserPath by rememberSaveable { mutableStateOf<String?>(null) }
     var browserTitle by rememberSaveable { mutableStateOf("") }
     var searchText by rememberSaveable { mutableStateOf("") }
+    var searchMode by rememberSaveable { mutableStateOf("") }
+    var searchModes by remember { mutableStateOf(listOf("meta", "contents", "deep")) }
+    var previousServerId by rememberSaveable { mutableStateOf(connection?.id) }
+    LaunchedEffect(connection?.id) {
+        if (previousServerId == connection?.id) return@LaunchedEffect
+        previousServerId = connection?.id
+        browserPath = null
+        searchText = ""
+        searchMode = ""
+        searchModes = listOf("meta", "contents", "deep")
+    }
     val navigation: NavigationState = viewModel()
     var shareRequest by navigation.shareRequest
     var connectionRequest by navigation.connectionRequest
@@ -84,7 +100,7 @@ internal class NavigationState : ViewModel() {
         repository.dismissSetup()
         when (incoming.action) {
             "add" -> { shareRequest = incoming; screen = "Add" }
-            "search" -> { searchText = incoming.text; screen = "Search" }
+            "search" -> { searchText = incoming.text; searchMode = ""; screen = "Search" }
             "connect" -> { connectionRequest = incoming; screen = "Settings" }
             "snapshot" -> {
                 val c = connection
@@ -99,7 +115,9 @@ internal class NavigationState : ViewModel() {
         onConsumed()
     }
     if ((!setupDismissed && connection == null && incoming == null && shareRequest == null && connectionRequest == null) || showGuide) {
-        SetupGuide(onConnect = { scope.launch { repository.dismissSetup(); showGuide = false; screen = "Settings" } }, onDismiss = {
+        SetupGuide(onConnect = { scope.launch { repository.dismissSetup(); showGuide = false; screen = "Settings" } }, onDiscover = {
+            repository.dismissSetup(); showGuide = false; discoverOnOpen = true; screen = "Settings"
+        }, onDismiss = {
             scope.launch { repository.dismissSetup(); showGuide = false }
         })
         return
@@ -127,12 +145,15 @@ internal class NavigationState : ViewModel() {
                     val c = connection
                     when {
                         browserPath != null && c != null -> ServerBrowser(repository, c, browserPath!!)
-                        screen == "Settings" -> ConnectionSettings(repository, connectionRequest, onRequestConsumed = { connectionRequest = null }, onGuide = { showGuide = true })
+                        screen == "Settings" -> ConnectionSettings(repository, connectionRequest, onRequestConsumed = { connectionRequest = null }, onGuide = { showGuide = true }, discoverOnOpen = discoverOnOpen, onDiscoveryStarted = { discoverOnOpen = false })
                         screen == "Add" -> AddScreen(repository, c, "", onConnect = { screen = "Settings" })
-                        screen == "Search" -> SearchScreen(repository, c, searchText, onConnect = { screen = "Settings" }, onOpen = { snapshot -> browserTitle = snapshot.title.ifBlank { "Archived page" }; browserPath = "snapshot/${snapshot.id}/index.html" })
+                        screen == "Search" && c != null -> ServerBrowser(repository, c, archiveSearchPath(searchText, searchMode), onSearchModes = { searchModes = it })
+                        screen == "Search" -> ConnectPrompt { screen = "Settings" }
                         screen == "Activity" && c != null -> ServerBrowser(repository, c, "admin/")
                         screen == "Activity" -> ConnectPrompt { screen = "Settings" }
-                        else -> HomeScreen(c, onAdd = { screen = "Add" }, onSearch = { screen = "Search" }, onConnect = { screen = "Settings" }, onRoute = { browserTitle = it.name; browserPath = it.path })
+                        else -> HomeScreen(c, registry.servers.filter { it.token.isNotBlank() }, searchText, searchMode, searchModes,
+                            onSwitch = { selected -> scope.launch { try { repository.selectConnection(selected.id) } catch (e: Exception) { routeError = e.message ?: "Couldn't switch servers." } } },
+                            onAdd = { screen = "Add" }, onSearch = { query, mode -> searchText = query; searchMode = mode; screen = "Search" }, onConnect = { screen = "Settings" }, onRoute = { browserTitle = it.name; browserPath = it.path })
                     }
                 }
             }
@@ -155,8 +176,9 @@ internal class NavigationState : ViewModel() {
     }
 }
 
-@Composable private fun HomeScreen(connection: ServerConfiguration?, onAdd: () -> Unit, onSearch: () -> Unit, onConnect: () -> Unit, onRoute: (ServerRoute) -> Unit) {
+@Composable private fun HomeScreen(connection: ServerConfiguration?, servers: List<ServerConfiguration>, searchText: String, searchMode: String, searchModes: List<String>, onSwitch: (ServerConfiguration) -> Unit, onAdd: () -> Unit, onSearch: (String, String) -> Unit, onConnect: () -> Unit, onRoute: (ServerRoute) -> Unit) {
     val context = LocalContext.current
+    var switching by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize().testTag("home"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(28.dp)) {
@@ -169,8 +191,25 @@ internal class NavigationState : ViewModel() {
             }
         }
         item { Surface(onClick = onConnect, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) { ListItem(headlineContent = { Text(if (connection == null) "Connect your server" else "Your ArchiveBox server") }, supportingContent = { Text(connection?.server ?: "Your data. Your devices. Your archive.", maxLines = 1, overflow = TextOverflow.Ellipsis) }, leadingContent = { Icon(if (connection == null) Icons.Outlined.Link else Icons.Outlined.Dns, null) }, trailingContent = { Icon(Icons.Outlined.ChevronRight, null) }) } }
+        if (servers.size > 1) item {
+            Box {
+                OutlinedButton(onClick = { switching = true }, modifier = Modifier.fillMaxWidth().testTag("sidebar.serverSwitcher")) {
+                    Icon(Icons.Outlined.Dns, null)
+                    Text(connection?.server?.let { Uri.parse(it).host } ?: "Choose server", Modifier.weight(1f).padding(horizontal = 10.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Outlined.ArrowDropDown, null)
+                }
+                DropdownMenu(expanded = switching, onDismissRequest = { switching = false }) {
+                    servers.forEach { server -> DropdownMenuItem(
+                        text = { Text(server.server) },
+                        leadingIcon = { Icon(if (server.id == connection?.id) Icons.Outlined.CheckCircle else Icons.Outlined.Dns, null) },
+                        onClick = { switching = false; if (server.id != connection?.id) onSwitch(server) },
+                        modifier = Modifier.testTag("sidebar.switchServer.${server.id}")
+                    ) }
+                }
+            }
+        }
+        item { key(connection?.id) { MenuSearchField(searchText, searchMode, searchModes, connection != null, onSearch) } }
         item { SectionTitle("Collection") }
-        item { RouteRow(ServerRoute("Search Archive", "", Icons.Outlined.Search), true, onSearch) }
         items(collectionRoutes) { route -> RouteRow(route, connection != null) { onRoute(route) } }
         item { SectionTitle("Administration") }
         items(adminRoutes) { route -> RouteRow(route, connection != null) { onRoute(route) } }
@@ -203,4 +242,41 @@ internal class NavigationState : ViewModel() {
     Surface(modifier.fillMaxWidth().testTag("error"), color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(16.dp)) {
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) { Icon(Icons.Outlined.ErrorOutline, null); Text(message, style = MaterialTheme.typography.bodyMedium) }
     }
+}
+
+internal fun archiveSearchPath(query: String, mode: String): String = Uri.Builder()
+    .path("admin/core/snapshot/")
+    .apply {
+        if (query.isNotBlank()) appendQueryParameter("q", query.trim())
+        if (mode.isNotBlank()) appendQueryParameter("search_mode", mode)
+    }.build().toString()
+
+@Composable private fun MenuSearchField(query: String, selectedMode: String, modes: List<String>, enabled: Boolean, onSearch: (String, String) -> Unit) {
+    var text by rememberSaveable(query) { mutableStateOf(query) }
+    var mode by rememberSaveable(selectedMode) { mutableStateOf(selectedMode) }
+    var showModes by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    OutlinedTextField(
+        value = text, onValueChange = { text = it }, enabled = enabled,
+        placeholder = { Text("Search archive") }, singleLine = true,
+        modifier = Modifier.fillMaxWidth().testTag("sidebar.searchField"),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { focus.clearFocus(); onSearch(text.trim(), mode) }),
+        leadingIcon = {
+            Box {
+                IconButton(onClick = { showModes = true }, enabled = enabled, modifier = Modifier.testTag("sidebar.searchMode")) { Icon(Icons.Outlined.Search, "Search mode") }
+                DropdownMenu(expanded = showModes, onDismissRequest = { showModes = false }) {
+                    (listOf("") + modes).distinct().forEach { value ->
+                        DropdownMenuItem(text = { Text(when (value) { "" -> "Server default"; "meta" -> "Metadata"; "contents" -> "Full text"; else -> value }) },
+                            leadingIcon = { if (mode == value) Icon(Icons.Outlined.Check, null) },
+                            onClick = { mode = value; showModes = false })
+                    }
+                }
+            }
+        },
+        trailingIcon = { Row {
+            if (text.isNotEmpty()) IconButton(onClick = { text = "" }) { Icon(Icons.Outlined.Close, "Clear search") }
+            IconButton(onClick = { focus.clearFocus(); onSearch(text.trim(), mode) }, enabled = enabled, modifier = Modifier.testTag("sidebar.searchSubmit")) { Icon(Icons.Outlined.ArrowForward, "Search archive") }
+        } }
+    )
 }

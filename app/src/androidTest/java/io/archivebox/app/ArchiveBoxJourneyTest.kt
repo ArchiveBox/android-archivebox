@@ -10,6 +10,7 @@ import androidx.test.espresso.web.model.Atoms
 import androidx.test.espresso.web.sugar.Web.onWebView
 import androidx.test.espresso.web.webdriver.DriverAtoms.findElement
 import androidx.test.espresso.web.webdriver.DriverAtoms.getText
+import androidx.test.espresso.web.webdriver.DriverAtoms.webClick
 import androidx.test.espresso.web.webdriver.Locator
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -111,14 +112,15 @@ class ArchiveBoxJourneyTest {
     @Test fun realServerJourneyAndEveryMajorScreen() {
         instrumentation.targetContext.startActivity(requireNotNull(instrumentation.targetContext.packageManager
             .getLaunchIntentForPackage("io.archivebox.app")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        assertTrue("The launcher must open onboarding", device.wait(Until.hasObject(By.text("I already have a server")), 5_000))
-        await("setup.connect")
+        assertTrue("The launcher must open onboarding", device.wait(Until.hasObject(By.text("Connect to existing server")), 5_000))
+        await("setup.choose")
         shot("onboarding")
+        click("setup.choose")
         click("setup.docker", scroll = true)
         await("guide.docker")
         shot("setup-docker")
         click("guide.back")
-        click("setup.connect", scroll = true)
+        click("setup.skip")
         fill("connection.url", server)
         fill("connection.token", "invalid-android-acceptance-key")
         click("connection.save", scroll = true)
@@ -155,13 +157,26 @@ class ArchiveBoxJourneyTest {
         route("Snapshots")
         assertTrue("The library must render its real page title", device.wait(Until.hasObject(By.textContains("Snapshots")), 10_000))
         shot("library")
-        click("tab.Search")
-        fill("search.query", "example.com")
-        click("search.submit")
+        click("tab.Archive")
+        compose.onNodeWithTag("home").performScrollToNode(hasTestTag("sidebar.searchField"))
+        fill("sidebar.searchField", "example.com")
+        click("sidebar.searchMode")
+        compose.onNodeWithText("Metadata").performClick()
+        click("sidebar.searchSubmit")
+        await("browser.ready")
         val exampleId = snapshots("example.com").first { it.getString("url").trimEnd('/') == "https://example.com" }.getString("id")
-        await("search.result.$exampleId")
+        val inputValue = Atoms.script("function(element) { return element.value; }", Atoms.castOrDie(String::class.java))
+        onWebView().withElement(findElement(Locator.CSS_SELECTOR, "input[name=q]"))
+            .check(webMatches(inputValue, equalTo("example.com")))
+        onWebView().withElement(findElement(Locator.CSS_SELECTOR, "select[name=search_mode]"))
+            .check(webMatches(inputValue, equalTo("meta")))
+        val resultRow = "//input[@name='_selected_action' and @value='$exampleId']/ancestor::tr"
+        onWebView().withElement(findElement(Locator.XPATH, resultRow))
+            .check(webMatches(getText(), containsString("https://example.com")))
         shot("search")
-        compose.onNode(hasText("Open saved page") and hasAnyAncestor(hasTestTag("search.result.$exampleId"))).performClick()
+        onWebView().withElement(findElement(Locator.XPATH,
+            "$resultRow//td[contains(@class, 'field-title_str')]/a[contains(@href, '/index.html')]"))
+            .perform(webClick())
         await("browser.ready")
         compose.onAllNodesWithTag("error").assertCountEquals(0)
         val archivedImage = device.wait(Until.findObject(By.desc("Screenshot of page")), 10_000)

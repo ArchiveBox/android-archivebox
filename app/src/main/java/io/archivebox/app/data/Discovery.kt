@@ -5,8 +5,10 @@ import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
@@ -25,23 +27,46 @@ class Discovery(context: Context, @Suppress("UNUSED_PARAMETER") api: ArchiveApi)
     private val probe = ArchiveApi(timeoutSeconds = 2)
     private val prefs = this.context.getSharedPreferences("discovery", Context.MODE_PRIVATE)
 
-    suspend fun scan(hints: List<String>, onFound: (DiscoveredServer) -> Unit) = coroutineScope {
-        val gate = Semaphore(24)
+    suspend fun scan(hints: List<String>, onProgress: (Int, Int) -> Unit = { _, _ -> }, onSweepFinished: () -> Unit = {}, onFound: (DiscoveredServer) -> Unit): Unit = withContext(Dispatchers.Main) {
+        val gate = Semaphore(32)
+        val probes = mutableListOf<Job>()
+        var completed = 0
+        var total = 0
         val seen = ConcurrentHashMap.newKeySet<String>()
-        val found = ConcurrentHashMap.newKeySet<String>()
+        val found = ConcurrentHashMap<String, String>()
+        val labels = ConcurrentHashMap<String, String>()
         val saved = prefs.getStringSet("hosts", emptySet()).orEmpty()
-        val imported = parseHints(hints)
+        val imported = hints.flatMap { parseHints(listOf(it)) }.distinct().take(128)
         prefs.edit().putStringSet("hosts", (saved + imported).take(128).toSet()).apply()
         fun check(address: String, label: String) {
-            if (!seen.add(address) || seen.size > 768) return
-            launch {
+            val normalized = runCatching { normalizeServer(address) }.getOrNull() ?: return
+            if (label.startsWith("Bonjour") || !labels.containsKey(normalized)) labels[normalized] = label
+            if (seen.contains(normalized)) {
+                if (label.startsWith("Bonjour") && found.containsKey(normalized)) launch(Dispatchers.Main) {
+                    found[normalized] = label
+                    onFound(DiscoveredServer(normalized, label))
+                }
+                return
+            }
+            if (seen.size >= 768 || !seen.add(normalized)) return
+            total += 1
+            onProgress(completed, total)
+            probes += launch {
                 gate.withPermit {
                     ensureActive()
                     try {
-                        val url = probe.discover(address)
-                        if (found.add(url)) withContext(Dispatchers.Main) { onFound(DiscoveredServer(url, label)) }
+                        val url = probe.discover(normalized)
+                        withContext(Dispatchers.Main) {
+                            val resolvedLabel = labels[normalized] ?: label
+                            val previous = found[url]
+                            if (previous == null || resolvedLabel.startsWith("Bonjour")) {
+                                found[url] = resolvedLabel
+                                onFound(DiscoveredServer(url, resolvedLabel))
+                            }
+                        }
                     } catch (cancelled: CancellationException) { throw cancelled }
                     catch (_: Exception) { /* An absent or unrelated server is not a discovery result. */ }
+                    finally { completed += 1; onProgress(completed, total) }
                 }
             }
         }
@@ -58,13 +83,16 @@ class Discovery(context: Context, @Suppress("UNUSED_PARAMETER") api: ArchiveApi)
                 manager.resolveService(info, object : NsdManager.ResolveListener {
                     override fun onResolveFailed(service: NsdServiceInfo, code: Int) = Unit
                     override fun onServiceResolved(service: NsdServiceInfo) {
-                        val advertised = service.attributes["url"]?.toString(Charsets.UTF_8)
-                        if (advertised != null) check(advertised, "Nearby · ${service.serviceName}")
-                        // Never downgrade an explicitly advertised HTTPS endpoint.
-                        val scheme = if (advertised?.startsWith("https://") == true) "https" else "http"
-                        service.host?.hostAddress?.let { address ->
-                            val host = if (':' in address) "[$address]" else address
-                            check("$scheme://$host:${service.port}/", "Nearby · ${service.serviceName}")
+                        launch {
+                            val advertised = service.attributes["url"]?.toString(Charsets.UTF_8)
+                            if (advertised != null) check(advertised, "Bonjour · ${service.serviceName}")
+                            // Never downgrade an explicitly advertised HTTPS endpoint.
+                            val scheme = if (advertised?.startsWith("https://") == true) "https" else "http"
+                            service.host?.hostAddress?.let { address ->
+                                val escaped = address.replace("%", "%25")
+                                val host = if (':' in escaped) "[$escaped]" else escaped
+                                check("$scheme://$host:${service.port}/", "Bonjour · ${service.serviceName}")
+                            }
                         }
                     }
                 })
@@ -72,14 +100,17 @@ class Discovery(context: Context, @Suppress("UNUSED_PARAMETER") api: ArchiveApi)
         }
         try {
             lock?.acquire()
-            manager.discoverServices("_archivebox._tcp.", NsdManager.PROTOCOL_DNS_SD, listener)
+            runCatching { manager.discoverServices("_archivebox._tcp.", NsdManager.PROTOCOL_DNS_SD, listener) }
             (imported + saved).distinct().take(128).forEach { check(it, "Saved network / tailnet device") }
             check("http://127.0.0.1:5797/", "This device")
             check("http://archivebox:5797/", "Network name · archivebox")
             val hosts = withContext(Dispatchers.IO) { lanHosts() }
             hosts.forEach { check("http://$it:5797/", "Local network · port 5797") }
-            // Give mDNS responders a fixed discovery window. Child probes finish within their own deadlines.
+            // Finish the bounded sweep, then keep Bonjour listening until the screen leaves.
             delay(5000)
+            probes.toList().joinAll()
+            onSweepFinished()
+            awaitCancellation()
         } finally {
             runCatching { manager.stopServiceDiscovery(listener) }
             if (lock?.isHeld == true) lock.release()

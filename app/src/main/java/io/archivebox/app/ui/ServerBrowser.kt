@@ -37,8 +37,9 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
 }
 
 @SuppressLint("SetJavaScriptEnabled")
-@Composable internal fun ServerBrowser(repository: ArchiveRepository, connection: ServerConfiguration, path: String) {
+@Composable internal fun ServerBrowser(repository: ArchiveRepository, connection: ServerConfiguration, path: String, onSearchModes: ((List<String>) -> Unit)? = null) {
     val context = LocalContext.current
+    val searchModesCallback by rememberUpdatedState(onSearchModes)
     var browser by remember { mutableStateOf<WebView?>(null) }
     var session by remember(connection) { mutableStateOf<BrowserSession?>(null) }
     // These cells must outlive route changes: the WebView client retains their references.
@@ -73,7 +74,7 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
             // Keep authenticated pages on the validated cookie host, including split-host deployments.
             val base = URI(authenticated.admin_url.trimEnd('/') + "/")
             val destination = base.resolve(if (path.startsWith("admin/")) path.removePrefix("admin/") else "../$path").toString()
-            AndroidView(
+            key(connection.id, connection.server, connection.token) { AndroidView(
                 modifier = Modifier.weight(1f).fillMaxWidth().testTag(if (ready && error == null) "browser.ready" else "browser.loading"),
                 factory = { ctx ->
                     WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
@@ -107,7 +108,18 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
                                 return true
                             }
                             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) { ready = false; error = null; canBack = view.canGoBack() }
-                            override fun onPageFinished(view: WebView, url: String) { ready = error == null; canBack = view.canGoBack() }
+                            override fun onPageFinished(view: WebView, url: String) {
+                                ready = error == null; canBack = view.canGoBack()
+                                if (ready && searchModesCallback != null && sameOrigin(url, authenticated.admin_url)) {
+                                    view.evaluateJavascript("Array.from(document.querySelectorAll('select[name=search_mode] option'), option => option.value)") { result ->
+                                        val modes = runCatching {
+                                            val values = org.json.JSONArray(result)
+                                            (0 until values.length()).map { values.getString(it) }.filter { it.isNotBlank() }.distinct()
+                                        }.getOrDefault(emptyList())
+                                        if (modes.isNotEmpty()) searchModesCallback?.invoke(modes)
+                                    }
+                                }
+                            }
                             override fun onReceivedError(view: WebView, request: WebResourceRequest, failure: WebResourceError) { if (request.isForMainFrame) { ready = false; error = "Couldn't load this page. ${failure.description}" } }
                             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) { if (request.isForMainFrame) { ready = false; error = "Server returned HTTP ${response.statusCode}." } }
                             // The default SSL handler cancels certificate errors; never bypass certificate validation.
@@ -123,6 +135,7 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
                 },
                 update = { view -> if (view.tag != destination) { view.tag = destination; view.loadUrl(destination) } },
             )
+            }
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = { browser?.reload() }) { Icon(Icons.Outlined.Refresh, null); Spacer(Modifier.width(6.dp)); Text("Reload") }
                 TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(browser?.url ?: destination))) }) { Icon(Icons.Outlined.OpenInNew, null); Spacer(Modifier.width(6.dp)); Text("Open in browser") }

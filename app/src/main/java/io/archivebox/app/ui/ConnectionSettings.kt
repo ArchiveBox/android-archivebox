@@ -30,8 +30,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.archivebox.app.data.*
 import io.archivebox.app.BuildConfig
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.CancellationException
 
-@Composable internal fun ConnectionSettings(repository: ArchiveRepository, incoming: IncomingRequest?, onRequestConsumed: () -> Unit, onGuide: () -> Unit) {
+@Composable internal fun ConnectionSettings(repository: ArchiveRepository, incoming: IncomingRequest?, onRequestConsumed: () -> Unit, onGuide: () -> Unit, discoverOnOpen: Boolean = false, onDiscoveryStarted: () -> Unit = {}) {
     val registry by repository.registry.collectAsStateWithLifecycle()
     val connection = registry.active_server
     var server by rememberSaveable { mutableStateOf(connection?.server.orEmpty()) }
@@ -40,11 +43,15 @@ import kotlinx.coroutines.launch
     var showToken by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
+    var scanJob by remember { mutableStateOf<Job?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
     var found by remember { mutableStateOf<List<DiscoveredServer>>(emptyList()) }
     var hints by rememberSaveable { mutableStateOf("") }
     var disconnect by remember { mutableStateOf(false) }
+    var forget by remember { mutableStateOf<ServerConfiguration?>(null) }
+    var completed by remember { mutableIntStateOf(0) }
+    var total by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val view = LocalView.current
@@ -100,27 +107,67 @@ import kotlinx.coroutines.launch
     fun scan() {
         if (scanning) return
         withNetworkPermission {
-            scope.launch {
-                scanning = true; found = emptyList(); error = null
+            val previousScan = scanJob
+            scanJob = scope.launch {
+                previousScan?.cancelAndJoin()
+                scanning = true; found = emptyList(); error = null; status = null; completed = 0; total = 0
                 try {
-                    Discovery(context, repository.api).scan(listOf(hints)) { candidate ->
-                        if (found.none { it.url == candidate.url }) found = found + candidate
+                    Discovery(context, repository.api).scan(listOf(hints) + registry.servers.map { it.server }, onProgress = { done, count -> completed = done; total = count }, onSweepFinished = {
+                        scanning = false
+                        if (found.isEmpty()) status = "No ArchiveBox servers found. Enter an address above, or add a tailnet hostname and scan again."
+                    }) { candidate ->
+                        found = (found.filterNot { it.url == candidate.url } + candidate).sortedBy { it.url }
                     }
-                    if (found.isEmpty()) status = "No ArchiveBox servers found. Enter an address above, or add a tailnet hostname and scan again."
-                } catch (e: Exception) { error = e.message ?: "Discovery failed." }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (e: Exception) { error = e.message ?: "Discovery failed." }
                 finally { scanning = false }
             }
         }
     }
     LaunchedEffect(Unit) {
-        // No surprise permission dialog on entry; automatic discovery begins if access is available.
-        if (Build.VERSION.SDK_INT < 37 || context.checkSelfPermission("android.permission.ACCESS_LOCAL_NETWORK") == PackageManager.PERMISSION_GRANTED) scan()
+        if (discoverOnOpen) {
+            scan()
+            onDiscoveryStarted()
+        } else if (Build.VERSION.SDK_INT < 37 || context.checkSelfPermission("android.permission.ACCESS_LOCAL_NETWORK") == PackageManager.PERMISSION_GRANTED) {
+            // Ordinary settings entry only starts discovery when permission is already available.
+            scan()
+        }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(24.dp)) {
             Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Outlined.Dns, null, Modifier.size(34.dp)); Text("Your archive, anywhere", style = MaterialTheme.typography.headlineSmall)
                 Text("Connect over your home network, Tailscale, or the internet. Use the address you open in a browser.")
+            }
+        }
+        if (registry.servers.isNotEmpty()) {
+            SectionTitle("Remembered connections")
+            registry.servers.forEach { saved ->
+                OutlinedCard(onClick = {
+                    scope.launch {
+                        busy = true; error = null
+                        try {
+                            repository.selectConnection(saved.id)
+                            server = saved.server; token = saved.token; showToken = false
+                            status = "Checking ${saved.name}…"
+                            repository.api.discover(saved.server)
+                            repository.api.testToken(saved)
+                            status = "Connected to ${saved.name}. Your saved API key is ready."
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                        catch (e: Exception) { status = null; error = e.message ?: "Couldn't switch servers." }
+                        finally { busy = false }
+                    }
+                }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("history.server.${saved.id}")) {
+                    ListItem(headlineContent = { Text(saved.name) }, supportingContent = { Text(saved.server) },
+                        leadingContent = { Icon(Icons.Outlined.History, null) }, trailingContent = {
+                            Row {
+                                if (saved.token.isNotBlank()) Icon(Icons.Outlined.CheckCircle, "Saved API key; ready to switch")
+                                IconButton(onClick = { forget = saved }, enabled = !busy, modifier = Modifier.testTag("history.forget.${saved.id}")) {
+                                    Icon(Icons.Outlined.RemoveCircleOutline, "Forget server")
+                                }
+                            }
+                        })
+                }
             }
         }
         OutlinedTextField(server, { editServer(it) }, enabled = !busy, label = { Text("Server URL") }, placeholder = { Text("http://archivebox.local:5797") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), singleLine = true, modifier = Modifier.fillMaxWidth().testTag("connection.url"), leadingIcon = { Icon(Icons.Outlined.Link, null) })
@@ -136,14 +183,16 @@ import kotlinx.coroutines.launch
             Button(onClick = { check(true) }, enabled = !busy && server.isNotBlank() && token.isNotBlank(), modifier = Modifier.weight(1f).testTag("connection.save")) { Text("Test & save") }
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        SectionTitle("Find a nearby server")
-        Text("Nearby servers on port 5797 appear automatically below.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(hints, { hints = it }, label = { Text("Server hostnames or IP addresses") }, placeholder = { Text("archivebox.tailnet-name.ts.net") }, supportingText = { Text("Optional · separate addresses with commas") }, maxLines = 4, modifier = Modifier.fillMaxWidth().testTag("connection.hints"))
+        SectionTitle("Available servers")
+        Text("Choose a server, or enter its address above. Nearby servers on port 5797 appear automatically below.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedTextField(hints, { hints = it }, label = { Text("Server hostnames or IP addresses") }, placeholder = { Text("archivebox.tailnet-name.ts.net") }, supportingText = { Text("Optional · paste hostnames, IP addresses, or tailscale status --json") }, maxLines = 4, modifier = Modifier.fillMaxWidth().testTag("connection.hints"))
         OutlinedButton(onClick = { scan() }, enabled = !scanning, modifier = Modifier.fillMaxWidth().testTag("connection.discover")) {
             Icon(Icons.Outlined.Radar, null); Spacer(Modifier.width(8.dp)); Text(if (scanning) "Looking for servers…" else "Discover servers")
         }
         if (scanning) LinearProgressIndicator(Modifier.fillMaxWidth())
-        found.forEach { candidate ->
+        if (scanning) Text("Checked $completed of $total addresses", style = MaterialTheme.typography.bodySmall)
+        Text("Checks Bonjour and up to 512 nearby IPv4 addresses. Android cannot read Tailscale’s device list; paste device names or status JSON to check servers elsewhere. Custom ports may need an address entered above.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        found.filterNot { candidate -> registry.servers.any { it.server == candidate.url } }.forEach { candidate ->
             OutlinedCard(onClick = { editServer(candidate.url); status = "Selected ${candidate.label}. Enter its API key, then test and save." }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("discovery.server")) {
                 ListItem(headlineContent = { Text(candidate.label) }, supportingContent = { Text(candidate.url) }, leadingContent = { Icon(Icons.Outlined.Dns, null) }, trailingContent = { Icon(Icons.Outlined.AddLink, null) })
             }
@@ -153,6 +202,18 @@ import kotlinx.coroutines.launch
         if (connection != null) TextButton(onClick = { disconnect = true }, modifier = Modifier.testTag("connection.disconnect")) { Text("Disconnect from server", color = MaterialTheme.colorScheme.error) }
         Text("Your API key is encrypted on this device. Shared URLs go only to the server you choose. No tracking or analytics.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("ArchiveBox ${BuildConfig.VERSION_NAME} · GPL-3.0-only", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("settings.version"))
+    }
+    forget?.let { saved ->
+        AlertDialog(onDismissRequest = { forget = null }, title = { Text("Forget this server?") },
+            text = { Text("Remove ${saved.server} and its saved API key from this device. Your archive and account stay on the server.") },
+            confirmButton = { TextButton(onClick = { scope.launch {
+                try {
+                    repository.removeConnection(saved.id)
+                    if (server == saved.server) { server = ""; token = ""; showToken = false; status = null }
+                    forget = null
+                } catch (e: Exception) { error = e.message ?: "Couldn't forget this server."; forget = null }
+            } }) { Text("Forget server") } },
+            dismissButton = { TextButton(onClick = { forget = null }) { Text("Cancel") } })
     }
     if (disconnect) AlertDialog(onDismissRequest = { disconnect = false }, title = { Text("Disconnect this device?") }, text = { Text("Your archive stays on the server. The saved API key and browser session will be removed from this device.") }, confirmButton = { TextButton(onClick = { scope.launch { repository.clearConnection(); token = ""; status = null; disconnect = false } }) { Text("Disconnect") } }, dismissButton = { TextButton(onClick = { disconnect = false }) { Text("Cancel") } })
 }

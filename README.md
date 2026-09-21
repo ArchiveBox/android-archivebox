@@ -33,7 +33,7 @@
 ## Get started
 
 1. **Install the beta.** Download [ArchiveBox-Android.apk](https://github.com/ArchiveBox/android-archivebox/releases/latest/download/ArchiveBox-Android.apk) from GitHub Releases. Android may ask you to allow installation from your browser. Release downloads appear after the first successful signed release.
-2. **Choose a home for your archive.** Run [ArchiveBox Server](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart) on your computer, home server, or hosting provider. Already set up? Choose **I already have a server** in the first-run guide.
+2. **Choose a home for your archive.** Run [ArchiveBox Server](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart) on your computer, home server, or hosting provider. Already set up? Choose **Connect to existing server** in the first-run guide.
 3. **Connect.** Open **Connection Settings**, enter a server URL and API key, and verify the connection. Use the address reachable from your phone; `localhost` refers to the phone itself.
 4. **Save your first link.** In your browser or another app, tap **Share → ArchiveBox**, add tags, and save. Open Search or Snapshots to find it after the server finishes archiving.
 
@@ -47,7 +47,11 @@ Android intents support incoming shared text and app links. Long-press the launc
 
 ## Connect nearby or over your tailnet
 
-**Connection Settings → Discover servers** checks nearby candidates on port **5797**. Discovery identifies servers; it does not send your API key to discovered addresses. Select a result, then authenticate with that server.
+**Connection Settings → Discover servers** checks nearby candidates on port **5797**. Discovery identifies servers; it does not send your API key to discovered addresses. It checks remembered addresses, reports scan progress, and continues listening for Bonjour servers while Connection Settings is open. Select a result, then authenticate with that server.
+
+Verified connections are remembered on this device with encrypted API keys. Select a remembered connection in Connection Settings, or use the server dropdown on the main menu when more than one connection has an API key. Switching the server you browse preserves your default share destination. Use **Forget** to remove a saved connection from this device.
+
+Search directly from the main menu. The search icon opens a mode menu with the server default, metadata, and full-text options; available modes refresh from the server. Results open in an authenticated embedded server page.
 
 For Tailscale, connect your Android device to your tailnet first and enter a server’s MagicDNS name or `100.x.y.z` address as a discovery hint, or paste the output of `tailscale status --json` from a computer on your tailnet. Only reachable candidates can be discovered, and a firewall or VPN policy can block access. You can always enter a server address directly, including a different port.
 
