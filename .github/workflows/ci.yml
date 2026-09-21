@@ -17,7 +17,7 @@ concurrency:
   group: android-${{ github.event_name == 'pull_request' && github.ref || 'main-release' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
-  BACKEND_REVISION: 070b8ae9c5d81fbf41e0d55bd7b0096aa322ccab
+  BACKEND_REVISION: dev
 
 jobs:
   version:
@@ -84,8 +84,10 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.13'
-      - name: Install pinned real ArchiveBox server
-        run: uv sync --frozen --project backend
+      - name: Install the real ArchiveBox server
+        run: |
+          echo "BACKEND_REVISION=$(git -C backend rev-parse HEAD)" >> "$GITHUB_ENV"
+          uv sync --frozen --project backend
       - uses: actions/setup-node@v5
         with:
           node-version: 22
