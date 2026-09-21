@@ -37,7 +37,7 @@ async function loadCaptures(captureRun) {
   if (manifest.workflowRun?.url && !/^https:\/\/github\.com\/ArchiveBox\/android-archivebox\/actions\/runs\/\d+$/.test(manifest.workflowRun.url)) throw new Error('Unexpected capture workflow URL');
   const ids = new Set();
   for (const capture of manifest.screenshots) {
-    if (!/^[a-z0-9-]+$/.test(capture.id) || ids.has(capture.id) || capture.file !== `${capture.id}.png` || !capture.title || !capture.description) throw new Error('Invalid or duplicate screenshot entry');
+    if (!/^[a-z][a-z0-9-]*$/.test(capture.id) || ids.has(capture.id) || capture.file !== `${capture.id}.png` || !capture.title || !capture.description) throw new Error('Invalid or duplicate screenshot entry');
     ids.add(capture.id);
     const png = await fs.readFile(path.join(input, capture.file));
     if (png.length < 24 || png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' || png.readUInt32BE(16) !== capture.width || png.readUInt32BE(20) !== capture.height || capture.width < 320 || capture.height < 320 || createHash('sha256').update(png).digest('hex') !== capture.sha256) throw new Error(`Invalid screenshot dimensions or digest: ${capture.file}`);
