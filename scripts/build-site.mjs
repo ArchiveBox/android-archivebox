@@ -66,7 +66,7 @@ async function main() {
   const [header, footer, landing] = await Promise.all(['header.html', 'footer.html', 'index.html'].map(file => fs.readFile(path.join(root, 'docs', file), 'utf8')));
   const description = 'Save the web you want to keep. Share links with tags, search your archive, and connect to your own ArchiveBox server from Android.';
   const page = (title, content, route = '') => `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#9b2854"><title>${escape(title)}</title><meta name="description" content="${description}"><link rel="canonical" href="${canonical}${route}"><meta name="robots" content="index,follow,max-image-preview:large"><meta property="og:type" content="website"><meta property="og:site_name" content="ArchiveBox"><meta property="og:locale" content="en_US"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${description}"><meta property="og:url" content="${canonical}${route}"><meta property="og:image" content="${canonical}assets/social-card.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="ArchiveBox — a home for the web you want to keep"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${escape(title)}"><meta name="twitter:description" content="${description}"><meta name="twitter:image" content="${canonical}assets/social-card.png"><link rel="icon" href="${base}assets/favicon.ico"><link rel="apple-touch-icon" href="${base}assets/apple-touch-icon.png"><link rel="stylesheet" href="${base}style.css?v=${revision}"></head><body><a class="skip-link" href="#content">Skip to content</a>${header}<main id="content">${content}</main>${footer}</body></html>`.replaceAll('__BASE__', base);
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#9b2854"><title>${escape(title)}</title><meta name="description" content="${description}"><link rel="canonical" href="${canonical}${route}">${route ? '' : `<link rel="alternate" hreflang="en" href="${canonical}"><link rel="alternate" hreflang="es" href="${canonical}es/"><link rel="alternate" hreflang="fr" href="${canonical}fr/"><link rel="alternate" hreflang="zh" href="${canonical}zh/"><link rel="alternate" hreflang="ru" href="${canonical}ru/"><link rel="alternate" hreflang="ar" href="${canonical}ar/"><link rel="alternate" hreflang="x-default" href="${canonical}">`}<meta name="robots" content="index,follow,max-image-preview:large"><meta property="og:type" content="website"><meta property="og:site_name" content="ArchiveBox"><meta property="og:locale" content="en_US"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${description}"><meta property="og:url" content="${canonical}${route}"><meta property="og:image" content="${canonical}assets/social-card.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="ArchiveBox — a home for the web you want to keep"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${escape(title)}"><meta name="twitter:description" content="${description}"><meta name="twitter:image" content="${canonical}assets/social-card.png"><link rel="icon" href="${base}assets/favicon.ico"><link rel="apple-touch-icon" href="${base}assets/apple-touch-icon.png"><link rel="stylesheet" href="${base}style.css?v=${revision}"></head><body><a class="skip-link" href="#content">Skip to content</a>${header}<main id="content">${content}</main>${footer}${route ? '' : `<script src="${base}language.js" defer></script>`}</body></html>`.replaceAll('__BASE__', base);
   const screenshotURL = capture => `${base}screenshots/${escape(capture.file)}?v=${capture.sha256.slice(0, 12)}`;
   const phone = id => {
     const capture = captures.find(item => item.id === id);
@@ -83,6 +83,8 @@ async function main() {
   await fs.rm(output, {recursive: true, force: true});
   await fs.mkdir(path.join(output, 'screenshots'), {recursive: true});
   for (const file of ['assets', 'style.css']) await fs.cp(path.join(root, 'docs', file), path.join(output, file), {recursive: true});
+  try { await fs.copyFile(path.join(root, 'docs', 'language.js'), path.join(output, 'language.js')); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
   if (manifest) {
     await fs.copyFile(path.join(input, 'manifest.json'), path.join(output, 'screenshots', 'manifest.json'));
     for (const capture of captures) await fs.copyFile(path.join(input, capture.file), path.join(output, 'screenshots', capture.file));
@@ -91,9 +93,15 @@ async function main() {
   await fs.writeFile(path.join(output, 'screenshots', 'index.html'), page('Screenshots · ArchiveBox for Android', gallery, 'screenshots/'));
   await fs.writeFile(path.join(output, '.nojekyll'), '');
   await fs.writeFile(path.join(output, 'CNAME'), canonical.hostname + '\n');
-  await fs.writeFile(path.join(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escape(canonical)}</loc></url><url><loc>${escape(canonical)}screenshots/</loc></url></urlset>\n`);
+  await fs.writeFile(path.join(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escape(canonical)}</loc></url><url><loc>${escape(canonical)}es/</loc></url><url><loc>${escape(canonical)}fr/</loc></url><url><loc>${escape(canonical)}zh/</loc></url><url><loc>${escape(canonical)}ru/</loc></url><url><loc>${escape(canonical)}ar/</loc></url><url><loc>${escape(canonical)}screenshots/</loc></url></urlset>\n`);
   await fs.writeFile(path.join(output, 'build.json'), JSON.stringify({revision, captureRevision: manifest?.commit || null, generatedAt: new Date().toISOString(), screenshots: captures.length, appVersion: manifest?.appVersion || null}, null, 2) + '\n');
   execFileSync('uv', ['run', '--no-project', 'python', path.join(root, '.github/pages/site.py'), 'render', output, '--baseurl', base], { cwd: root, stdio: 'inherit' });
+  for (const locale of ['es', 'fr', 'zh', 'ru', 'ar']) {
+    try {
+      await fs.mkdir(path.join(output, locale), {recursive: true});
+      await fs.copyFile(path.join(root, 'docs', locale, 'index.html'), path.join(output, locale, 'index.html'));
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
   console.log(`Built ${output}: ${captures.length} real screenshots${manifest ? '' : ' (gallery pending)'}`);
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; });
