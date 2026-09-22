@@ -179,6 +179,9 @@ class ArchiveBoxJourneyTest {
             .perform(webClick())
         await("browser.ready")
         compose.onAllNodesWithTag("error").assertCountEquals(0)
+        onWebView().withElement(findElement(Locator.CSS_SELECTOR, ".output-stack-raster")).perform(webClick())
+        onWebView().withElement(findElement(Locator.CSS_SELECTOR,
+            ".thumb-card[data-plugin-name='screenshot'] a[target='preview']")).perform(webClick())
         val archivedImage = device.wait(Until.findObject(By.desc("Screenshot of page")), 10_000)
         assertNotNull("The snapshot must display the real archived image", archivedImage)
         assertTrue("Archived content must have a visible replay viewport", archivedImage!!.visibleBounds.height() > 300)
