@@ -10,6 +10,11 @@ on:
       - 'README.md'
   pull_request:
   workflow_dispatch:
+    inputs:
+      archivebox_version:
+        description: Released ArchiveBox server version to test (for example 0.9.50)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,7 +22,7 @@ concurrency:
   group: android-${{ github.event_name == 'pull_request' && github.ref || 'main-release' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
-  BACKEND_REVISION: dev
+  BACKEND_REVISION: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.archivebox_version) || 'dev' }}
 
 jobs:
   version:
@@ -33,6 +38,11 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - name: Validate released server version
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          ARCHIVEBOX_VERSION: ${{ inputs.archivebox_version }}
+        run: node -e 'if (!/^\d+\.\d+\.\d+(?:rc\d+)?$/.test(process.env.ARCHIVEBOX_VERSION)) process.exit(1)'
       - run: node scripts/test-release-version.mjs
       - id: version
         run: node scripts/release-version.mjs
@@ -179,7 +189,7 @@ jobs:
           retention-days: 90
 
   release:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [version, verify, capture, site]
     runs-on: ubuntu-latest
     timeout-minutes: 30

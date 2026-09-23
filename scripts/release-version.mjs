@@ -16,8 +16,17 @@ const compare = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
 const tags = git('tag', '--list', 'v*').split('\n').filter(tag => /^v\d+\.\d+\.\d+$/.test(tag));
 const head = git('rev-parse', 'HEAD');
 const previous = tags.filter(tag => git('rev-list', '-n', '1', tag) === head).sort((a,b) => compare(parse(b),parse(a)))[0];
+const isMarketingFile = file => file === 'README.md' || file === '.github/workflows/pages.yml' || file.startsWith('docs/') || file.startsWith('.github/pages/');
 let version;
-if (previous) version = parse(previous);
+if (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch') {
+  const released = git('tag', '--merged', 'HEAD', '--list', 'v*').split('\n')
+    .filter(tag => /^v\d+\.\d+\.\d+$/.test(tag)).sort((a,b) => compare(parse(b),parse(a)))[0];
+  if (!released) throw new Error('Server compatibility captures require an existing Android release');
+  const changes = git('diff', '--name-only', released, 'HEAD').split('\n').filter(Boolean);
+  if (changes.some(file => !isMarketingFile(file))) throw new Error('Unreleased Android app changes require the normal push release before server compatibility capture');
+  version = parse(released);
+}
+else if (previous) version = parse(previous);
 else {
   const base = parse(properties.versionName);
   const latest = tags.map(parse).sort(compare).at(-1);
