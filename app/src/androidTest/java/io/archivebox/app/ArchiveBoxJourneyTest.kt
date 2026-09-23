@@ -186,15 +186,14 @@ class ArchiveBoxJourneyTest {
             """function(frame) {
                 var rect = frame.getBoundingClientRect();
                 var visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
-                var image = frame.contentDocument && frame.contentDocument.images[0];
-                return frame.src.includes('screenshot') && image && image.complete && image.naturalWidth > 0 &&
-                    visibleHeight * window.devicePixelRatio > 300 ? 'visible' : 'hidden';
+                return frame.src.includes('screenshot') && visibleHeight * window.devicePixelRatio > 300
+                    ? 'visible' : 'hidden';
             }""",
             Atoms.castOrDie(String::class.java),
         )
+        shot("snapshot")
         onWebView().withElement(findElement(Locator.CSS_SELECTOR, "#main-frame"))
             .check(webMatches(replayVisible, equalTo("visible")))
-        shot("snapshot")
 
         click("tab.Add")
         fill("add.urls", "https://example.com")

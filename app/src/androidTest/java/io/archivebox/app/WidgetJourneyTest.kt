@@ -20,11 +20,19 @@ class WidgetJourneyTest {
         val device = UiDevice.getInstance(instrumentation)
         val output = File(instrumentation.targetContext.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
         device.pressHome()
+        device.waitForIdle()
         val widgetSearch = By.res("io.archivebox.app", "widget_search")
         if (!device.hasObject(widgetSearch)) {
             val workspace = requireNotNull(device.wait(Until.findObject(By.res(Pattern.compile(".*:id/workspace"))), 5_000)) { "Launcher workspace is missing" }
             workspace.longClick()
-            requireNotNull(device.wait(Until.findObject(By.text("Widgets")), 5_000)) { "Launcher Widgets action missing" }.click()
+            val widgets = device.wait(Until.findObject(By.textContains("Widgets")), 5_000)
+            if (widgets == null) {
+                val menu = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+                File(output, "widget-menu-failure.png").outputStream().use { assertTrue(menu.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+                menu.recycle()
+                throw AssertionError("Launcher Widgets action missing")
+            }
+            widgets.click()
             requireNotNull(device.wait(Until.findObject(By.desc("Browse widgets")), 5_000)) { "Widget Browse tab missing" }.click()
             requireNotNull(device.wait(Until.findObject(By.textContains("ArchiveBox")), 5_000)) { "ArchiveBox missing from actual widget picker" }.click()
             requireNotNull(device.wait(Until.findObject(By.res("com.android.launcher3.widgetpicker", "widget_preview")), 5_000)) { "Widget preview missing" }.click()
