@@ -205,6 +205,9 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -250,11 +253,9 @@ jobs:
         shell: bash
         run: |
           tar -czf artifacts/releases/ArchiveBox-Android-screenshots.tar.gz -C artifacts/screenshots .
-          if ! gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --title "ArchiveBox Android $RELEASE_TAG" --generate-notes --draft
-          fi
+          node scripts/publish-release-notes.mjs
           gh release upload "$RELEASE_TAG" artifacts/releases/* --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --latest
+          gh release edit "$RELEASE_TAG" --draft=false --latest --title "$RELEASE_TAG" --notes-file artifacts/releases/release-notes.md
       - name: Remove private signing material
         if: always()
         run: rm -f "$ANDROID_KEYSTORE_PATH"
