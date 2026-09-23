@@ -235,7 +235,7 @@ class ArchiveBoxJourneyTest {
             setPackage("io.archivebox.app")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        instrumentation.targetContext.startActivity(shareIntent)
+        instrumentation.context.startActivity(shareIntent)
         assertTrue("Share intent must display its URL in the real app", device.wait(Until.hasObject(By.textContains(sharedUrl)), 30_000))
         node("share.sheet").assertExists()
         node("add.urls").assertTextContains(sharedUrl, substring = true)
