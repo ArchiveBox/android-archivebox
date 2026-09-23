@@ -10,6 +10,7 @@ import androidx.test.espresso.web.model.Atoms
 import androidx.test.espresso.web.sugar.Web.onWebView
 import androidx.test.espresso.web.webdriver.DriverAtoms.findElement
 import androidx.test.espresso.web.webdriver.DriverAtoms.getText
+import androidx.test.espresso.web.webdriver.DriverAtoms.selectFrameByIdOrName
 import androidx.test.espresso.web.webdriver.DriverAtoms.webClick
 import androidx.test.espresso.web.webdriver.Locator
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -182,6 +183,12 @@ class ArchiveBoxJourneyTest {
         onWebView().withElement(findElement(Locator.CSS_SELECTOR, ".output-stack-raster")).perform(webClick())
         onWebView().withElement(findElement(Locator.CSS_SELECTOR,
             ".thumb-card[data-plugin-name='screenshot'] a[target='preview']")).perform(webClick())
+        // The server's output cards precede the replay on a phone. Scroll through
+        // the real page to its selected preview, as a reader would.
+        repeat(2) {
+            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4,
+                device.displayWidth / 2, device.displayHeight / 4, 30)
+        }
         val replayVisible = Atoms.script(
             """function(frame) {
                 var rect = frame.getBoundingClientRect();
@@ -194,6 +201,17 @@ class ArchiveBoxJourneyTest {
         shot("snapshot")
         onWebView().withElement(findElement(Locator.CSS_SELECTOR, "#main-frame"))
             .check(webMatches(replayVisible, equalTo("visible")))
+        val imageLoaded = Atoms.script(
+            """function(image) {
+                var rect = image.getBoundingClientRect();
+                return image.complete && image.naturalWidth > 0 && image.naturalHeight > 0 &&
+                    rect.width > 0 && rect.height > 0 ? 'loaded' : 'missing';
+            }""",
+            Atoms.castOrDie(String::class.java),
+        )
+        onWebView().inWindow(selectFrameByIdOrName("main-frame"))
+            .withElement(findElement(Locator.CSS_SELECTOR, ".archivebox-image-preview img"))
+            .check(webMatches(imageLoaded, equalTo("loaded")))
 
         click("tab.Add")
         fill("add.urls", "https://example.com")

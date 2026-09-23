@@ -10,7 +10,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
-import java.util.regex.Pattern
 
 /** Launcher interaction has its own lifecycle, outside a Compose ActivityScenario. */
 @RunWith(AndroidJUnit4::class)
@@ -23,8 +22,10 @@ class WidgetJourneyTest {
         device.waitForIdle()
         val widgetSearch = By.res("io.archivebox.app", "widget_search")
         if (!device.hasObject(widgetSearch)) {
-            val workspace = requireNotNull(device.wait(Until.findObject(By.res(Pattern.compile(".*:id/workspace"))), 5_000)) { "Launcher workspace is missing" }
-            workspace.longClick()
+            // The workspace center can land on an app icon after prior activity.
+            // Press empty wallpaper above the icon rows to open launcher settings.
+            device.swipe(device.displayWidth / 2, device.displayHeight / 3,
+                device.displayWidth / 2, device.displayHeight / 3, 100)
             val widgets = device.wait(Until.findObject(By.textContains("Widgets")), 5_000)
             if (widgets == null) {
                 val menu = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
