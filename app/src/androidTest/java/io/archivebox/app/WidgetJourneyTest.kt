@@ -35,7 +35,15 @@ class WidgetJourneyTest {
             }
             widgets.click()
             requireNotNull(device.wait(Until.findObject(By.desc("Browse widgets")), 5_000)) { "Widget Browse tab missing" }.click()
-            requireNotNull(device.wait(Until.findObject(By.textContains("ArchiveBox")), 5_000)) { "ArchiveBox missing from actual widget picker" }.click()
+            val archiveBox = device.wait(Until.findObject(By.textContains("ArchiveBox")), 5_000)
+            if (archiveBox == null) {
+                val picker = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+                File(output, "widget-picker-failure.png").outputStream().use { assertTrue(picker.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+                picker.recycle()
+                device.dumpWindowHierarchy(File(output, "widget-picker-failure.xml"))
+                throw AssertionError("ArchiveBox missing from actual widget picker")
+            }
+            archiveBox.click()
             requireNotNull(device.wait(Until.findObject(By.res("com.android.launcher3.widgetpicker", "widget_preview")), 5_000)) { "Widget preview missing" }.click()
             requireNotNull(device.wait(Until.findObject(By.desc("Add ArchiveBox widget")), 5_000)) { "Widget Add action missing" }.click()
         }

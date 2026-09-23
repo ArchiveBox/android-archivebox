@@ -10,7 +10,6 @@ import androidx.test.espresso.web.model.Atoms
 import androidx.test.espresso.web.sugar.Web.onWebView
 import androidx.test.espresso.web.webdriver.DriverAtoms.findElement
 import androidx.test.espresso.web.webdriver.DriverAtoms.getText
-import androidx.test.espresso.web.webdriver.DriverAtoms.selectFrameByIdOrName
 import androidx.test.espresso.web.webdriver.DriverAtoms.webClick
 import androidx.test.espresso.web.webdriver.Locator
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -186,6 +185,12 @@ class ArchiveBoxJourneyTest {
         // Hide the output cards with the server's own header control so the
         // selected replay has room in the phone viewport.
         onWebView().withElement(findElement(Locator.CSS_SELECTOR, ".header-toggle")).perform(webClick())
+        val headerHidden = Atoms.script(
+            "function(header) { return header.hidden ? 'hidden' : 'visible'; }",
+            Atoms.castOrDie(String::class.java),
+        )
+        onWebView().withElement(findElement(Locator.CSS_SELECTOR, ".header-bottom"))
+            .check(webMatches(headerHidden, equalTo("hidden")))
         val replayVisible = Atoms.script(
             """function(frame) {
                 var rect = frame.getBoundingClientRect();
@@ -195,20 +200,23 @@ class ArchiveBoxJourneyTest {
             }""",
             Atoms.castOrDie(String::class.java),
         )
-        shot("snapshot")
         onWebView().withElement(findElement(Locator.CSS_SELECTOR, "#main-frame"))
             .check(webMatches(replayVisible, equalTo("visible")))
-        val imageLoaded = Atoms.script(
-            """function(image) {
-                var rect = image.getBoundingClientRect();
-                return image.complete && image.naturalWidth > 0 && image.naturalHeight > 0 &&
-                    rect.width > 0 && rect.height > 0 ? 'loaded' : 'missing';
-            }""",
-            Atoms.castOrDie(String::class.java),
-        )
-        onWebView().inWindow(selectFrameByIdOrName("main-frame"))
-            .withElement(findElement(Locator.CSS_SELECTOR, "img.screenshot-fullscreen"))
-            .check(webMatches(imageLoaded, equalTo("loaded")))
+        val archivedImage = device.wait(Until.findObject(By.desc("Screenshot of page")), 10_000)
+        assertNotNull("The expanded replay must display its screenshot", archivedImage)
+        assertTrue("The full screenshot must be visible, not its thumbnail", archivedImage!!.visibleBounds.height() > 300)
+        val screenshot = URL("${server.trimEnd('/')}/snapshot/$exampleId/screenshot/screenshot.png").openConnection() as HttpURLConnection
+        screenshot.setRequestProperty("X-ArchiveBox-API-Key", token)
+        screenshot.connectTimeout = 10_000
+        screenshot.readTimeout = 10_000
+        try {
+            assertEquals("The replay image must be served by the real archive", 200, screenshot.responseCode)
+            assertEquals("image/png", screenshot.contentType)
+            assertTrue("The archived PNG must contain image data", screenshot.contentLength > 10_000)
+            assertArrayEquals(byteArrayOf(-119, 80, 78, 71, 13, 10, 26, 10),
+                screenshot.inputStream.use { it.readNBytes(8) })
+        } finally { screenshot.disconnect() }
+        shot("snapshot")
 
         click("tab.Add")
         fill("add.urls", "https://example.com")
