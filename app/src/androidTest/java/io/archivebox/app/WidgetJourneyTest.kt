@@ -26,7 +26,7 @@ class WidgetJourneyTest {
             workspace.longClick()
             requireNotNull(device.wait(Until.findObject(By.text("Widgets")), 5_000)) { "Launcher Widgets action missing" }.click()
             requireNotNull(device.wait(Until.findObject(By.desc("Browse widgets")), 5_000)) { "Widget Browse tab missing" }.click()
-            requireNotNull(device.wait(Until.findObject(By.text("ArchiveBox")), 5_000)) { "ArchiveBox missing from actual widget picker" }.click()
+            requireNotNull(device.wait(Until.findObject(By.textContains("ArchiveBox")), 5_000)) { "ArchiveBox missing from actual widget picker" }.click()
             requireNotNull(device.wait(Until.findObject(By.res("com.android.launcher3.widgetpicker", "widget_preview")), 5_000)) { "Widget preview missing" }.click()
             requireNotNull(device.wait(Until.findObject(By.desc("Add ArchiveBox widget")), 5_000)) { "Widget Add action missing" }.click()
         }

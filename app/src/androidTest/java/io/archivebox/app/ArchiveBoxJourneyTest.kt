@@ -182,9 +182,18 @@ class ArchiveBoxJourneyTest {
         onWebView().withElement(findElement(Locator.CSS_SELECTOR, ".output-stack-raster")).perform(webClick())
         onWebView().withElement(findElement(Locator.CSS_SELECTOR,
             ".thumb-card[data-plugin-name='screenshot'] a[target='preview']")).perform(webClick())
-        val archivedImage = device.wait(Until.findObject(By.desc("Screenshot of page")), 10_000)
-        assertNotNull("The snapshot must display the real archived image", archivedImage)
-        assertTrue("Archived content must have a visible replay viewport", archivedImage!!.visibleBounds.height() > 300)
+        val replayVisible = Atoms.script(
+            """function(frame) {
+                var rect = frame.getBoundingClientRect();
+                var visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+                var image = frame.contentDocument && frame.contentDocument.images[0];
+                return frame.src.includes('screenshot') && image && image.complete && image.naturalWidth > 0 &&
+                    visibleHeight * window.devicePixelRatio > 300 ? 'visible' : 'hidden';
+            }""",
+            Atoms.castOrDie(String::class.java),
+        )
+        onWebView().withElement(findElement(Locator.CSS_SELECTOR, "#main-frame"))
+            .check(webMatches(replayVisible, equalTo("visible")))
         shot("snapshot")
 
         click("tab.Add")
