@@ -14,6 +14,8 @@ import androidx.test.espresso.web.webdriver.DriverAtoms.webClick
 import androidx.test.espresso.web.webdriver.Locator
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Until
@@ -236,7 +238,20 @@ class ArchiveBoxJourneyTest {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         instrumentation.context.startActivity(shareIntent)
-        assertTrue("Share intent must display its URL in the real app", device.wait(Until.hasObject(By.textContains(sharedUrl)), 30_000))
+        if (!device.wait(Until.hasObject(By.textContains(sharedUrl)), 30_000)) {
+            shot("failure", composeIdle = false)
+            var action: String? = null
+            var data: String? = null
+            var textMatches = false
+            instrumentation.runOnMainSync {
+                val activity = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                    .filterIsInstance<MainActivity>().lastOrNull()
+                action = activity?.intent?.action
+                data = activity?.intent?.dataString
+                textMatches = activity?.intent?.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString() == sharedUrl
+            }
+            fail("Share intent did not display its URL: resumedAction=$action data=$data textMatches=$textMatches")
+        }
         node("share.sheet").assertExists()
         node("add.urls").assertTextContains(sharedUrl, substring = true)
         fill("add.tags", "android-share, research")
