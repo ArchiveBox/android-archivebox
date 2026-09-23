@@ -238,7 +238,9 @@ class ArchiveBoxJourneyTest {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         instrumentation.context.startActivity(shareIntent)
-        if (!device.wait(Until.hasObject(By.textContains(sharedUrl)), 30_000)) {
+        try {
+            compose.waitUntil(30_000) { device.hasObject(By.textContains(sharedUrl)) }
+        } catch (failure: ComposeTimeoutException) {
             shot("failure", composeIdle = false)
             var action: String? = null
             var data: String? = null
