@@ -32,10 +32,10 @@ jobs:
       code: ${{ steps.version.outputs.code }}
       tag: ${{ steps.version.outputs.tag }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Validate released server version
@@ -52,8 +52,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
@@ -61,17 +61,17 @@ jobs:
         with:
           packages: 'platform-tools build-tools;36.0.0 platforms;android-37.0'
           log-accepted-android-sdk-licenses: false
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Compile, lint, and test
         run: ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug assembleDebugAndroidTest -PversionName=${{ needs.version.outputs.name }} -PversionCode=${{ needs.version.outputs.code }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-test-apks
           path: |
             app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/androidTest/debug/*.apk
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: android-verification-reports
@@ -84,8 +84,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: ArchiveBox/ArchiveBox
           ref: ${{ env.BACKEND_REVISION }}
@@ -98,15 +98,15 @@ jobs:
         run: |
           echo "BACKEND_REVISION=$(git -C backend rev-parse HEAD)" >> "$GITHUB_ENV"
           uv sync --frozen --project backend
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.33.2
       - name: Archive real pages and start the server
         run: bash scripts/start-screenshot-server.sh "$GITHUB_WORKSPACE/backend" "$RUNNER_TEMP/archivebox-capture"
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: android-test-apks
           path: artifacts/apks
@@ -147,13 +147,13 @@ jobs:
           disable-animations: true
           pre-emulator-launch-script: grep -Fx 'target=android-37.0' "$HOME/.android/avd/test.ini"
           script: bash scripts/capture-screenshots.sh "$RUNNER_TEMP/archivebox-capture" artifacts/screenshots artifacts/apks
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-screenshots
           path: artifacts/screenshots/
           if-no-files-found: error
           retention-days: 90
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: capture-diagnostics
@@ -168,11 +168,11 @@ jobs:
     needs: [capture, version]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: android-screenshots
           path: artifacts/screenshots
@@ -181,7 +181,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.version.outputs.name }}
         run: node scripts/build-site.mjs --screenshots-dir artifacts/screenshots --require-screenshots
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: site-screenshots
           path: artifacts/screenshots
@@ -202,13 +202,13 @@ jobs:
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/.release-signing.jks
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
@@ -216,7 +216,7 @@ jobs:
         with:
           packages: 'platform-tools build-tools;36.0.0 platforms;android-37.0'
           log-accepted-android-sdk-licenses: false
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Restore persistent signing identity
         shell: bash
         run: |
@@ -242,7 +242,7 @@ jobs:
           grep -q '^jar verified\.' artifacts/bundle-verification.txt
           cd artifacts/releases
           sha256sum ArchiveBox-Android.apk ArchiveBox-Android.aab > SHA256SUMS
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: android-screenshots
           path: artifacts/screenshots
