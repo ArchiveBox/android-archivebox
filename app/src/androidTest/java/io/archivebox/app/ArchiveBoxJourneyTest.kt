@@ -183,12 +183,9 @@ class ArchiveBoxJourneyTest {
         onWebView().withElement(findElement(Locator.CSS_SELECTOR, ".output-stack-raster")).perform(webClick())
         onWebView().withElement(findElement(Locator.CSS_SELECTOR,
             ".thumb-card[data-plugin-name='screenshot'] a[target='preview']")).perform(webClick())
-        // The server's output cards precede the replay on a phone. Scroll through
-        // the real page to its selected preview, as a reader would.
-        repeat(2) {
-            device.swipe(device.displayWidth / 2, device.displayHeight * 3 / 4,
-                device.displayWidth / 2, device.displayHeight / 4, 30)
-        }
+        // Hide the output cards with the server's own header control so the
+        // selected replay has room in the phone viewport.
+        onWebView().withElement(findElement(Locator.CSS_SELECTOR, ".header-toggle")).perform(webClick())
         val replayVisible = Atoms.script(
             """function(frame) {
                 var rect = frame.getBoundingClientRect();
@@ -210,7 +207,7 @@ class ArchiveBoxJourneyTest {
             Atoms.castOrDie(String::class.java),
         )
         onWebView().inWindow(selectFrameByIdOrName("main-frame"))
-            .withElement(findElement(Locator.CSS_SELECTOR, ".archivebox-image-preview img"))
+            .withElement(findElement(Locator.CSS_SELECTOR, "img.screenshot-fullscreen"))
             .check(webMatches(imageLoaded, equalTo("loaded")))
 
         click("tab.Add")
