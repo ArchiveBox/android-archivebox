@@ -236,7 +236,8 @@ class ArchiveBoxJourneyTest {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         instrumentation.targetContext.startActivity(shareIntent)
-        await("share.sheet")
+        assertTrue("Share intent must display its URL in the real app", device.wait(Until.hasObject(By.textContains(sharedUrl)), 30_000))
+        node("share.sheet").assertExists()
         node("add.urls").assertTextContains(sharedUrl, substring = true)
         fill("add.tags", "android-share, research")
         click("add.tagsConfirm")
