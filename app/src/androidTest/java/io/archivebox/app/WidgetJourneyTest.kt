@@ -25,12 +25,13 @@ class WidgetJourneyTest {
             // The workspace center can land on an app icon after prior activity.
             // Press empty wallpaper above the icon rows to open launcher settings.
             device.swipe(device.displayWidth / 2, device.displayHeight / 3,
-                device.displayWidth / 2, device.displayHeight / 3, 100)
+                device.displayWidth / 2, device.displayHeight / 3, 250)
             val widgets = device.wait(Until.findObject(By.textContains("Widgets")), 5_000)
             if (widgets == null) {
                 val menu = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
                 File(output, "widget-menu-failure.png").outputStream().use { assertTrue(menu.compress(Bitmap.CompressFormat.PNG, 100, it)) }
                 menu.recycle()
+                device.dumpWindowHierarchy(File(output, "widget-menu-failure.xml"))
                 throw AssertionError("Launcher Widgets action missing")
             }
             widgets.click()
