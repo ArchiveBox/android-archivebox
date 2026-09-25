@@ -174,7 +174,9 @@ class ArchiveBoxJourneyTest {
             .check(webMatches(inputValue, equalTo("meta")))
         val resultRow = "//input[@name='_selected_action' and @value='$exampleId']/ancestor::tr"
         onWebView().withElement(findElement(Locator.XPATH, resultRow))
-            .check(webMatches(getText(), containsString("https://example.com")))
+            .check(webMatches(getText(), containsString("example.com")))
+        onWebView().withElement(findElement(Locator.XPATH, resultRow))
+            .check(webMatches(getText(), containsString("Example Domain")))
         shot("search")
         onWebView().withElement(findElement(Locator.XPATH,
             "$resultRow//td[contains(@class, 'field-title_str')]/a[contains(@href, '/index.html')]"))
