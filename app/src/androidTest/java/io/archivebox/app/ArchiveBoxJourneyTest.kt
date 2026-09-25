@@ -179,7 +179,7 @@ class ArchiveBoxJourneyTest {
             .check(webMatches(getText(), containsString("Example Domain")))
         shot("search")
         onWebView().withElement(findElement(Locator.XPATH,
-            "$resultRow//a[contains(concat(' ', normalize-space(@class), ' '), ' snapshot-title ')]"))
+            "$resultRow//td[contains(@class, 'field-title_str')]/a[contains(@class, 'snapshot-title-detail-hitbox')]"))
             .perform(webClick())
         await("browser.ready")
         compose.onAllNodesWithTag("error").assertCountEquals(0)

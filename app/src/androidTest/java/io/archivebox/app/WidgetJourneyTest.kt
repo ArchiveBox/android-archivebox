@@ -22,10 +22,10 @@ class WidgetJourneyTest {
         device.waitForIdle()
         val widgetSearch = By.res("io.archivebox.app", "widget_search")
         if (!device.hasObject(widgetSearch)) {
-            // The workspace center can land on an app icon after prior activity.
-            // Press empty wallpaper above the icon rows to open launcher settings.
-            device.swipe(device.displayWidth / 2, device.displayHeight / 3,
-                device.displayWidth / 2, device.displayHeight / 3, 250)
+            // Long-press the actual launcher workspace to open its widget menu.
+            requireNotNull(device.findObject(By.res("com.google.android.apps.nexuslauncher", "workspace"))) {
+                "Launcher workspace missing"
+            }.longClick()
             val widgets = device.wait(Until.findObject(By.textContains("Widgets")), 5_000)
             if (widgets == null) {
                 val menu = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
