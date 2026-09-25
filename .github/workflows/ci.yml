@@ -255,7 +255,7 @@ jobs:
           tar -czf artifacts/releases/ArchiveBox-Android-screenshots.tar.gz -C artifacts/screenshots .
           node scripts/publish-release-notes.mjs
           gh release upload "$RELEASE_TAG" artifacts/releases/* --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --latest --title "$RELEASE_TAG" --notes-file artifacts/releases/release-notes.md
+          gh release edit "$RELEASE_TAG" --draft=false --latest --title "$RELEASE_TAG" --notes-file artifacts/release-notes.md
       - name: Remove private signing material
         if: always()
         run: rm -f "$ANDROID_KEYSTORE_PATH"
