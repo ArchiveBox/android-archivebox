@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Exercise actual git history, including reruns and patch rollover.
 import {execFileSync} from 'node:child_process';
-import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
+import {mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import assert from 'node:assert/strict';
@@ -23,6 +23,12 @@ try {
   writeFileSync(join(directory, 'README.md'), 'Marketing copy\n');
   git('add', '.'); git('commit', '-m', 'Update marketing copy');
   assert.equal(run('workflow_dispatch').version, '0.1.0', 'Server capture reuses the release after marketing-only commits');
+  mkdirSync(join(directory, 'app/src/androidTest'), {recursive: true});
+  writeFileSync(join(directory, 'app/src/androidTest/JourneyTest.kt'), 'Updated capture journey\n');
+  mkdirSync(join(directory, '.github/workflows'), {recursive: true});
+  writeFileSync(join(directory, '.github/workflows/ci.yml'), 'Updated CI\n');
+  git('add', '.'); git('commit', '-m', 'Update capture journey and CI');
+  assert.equal(run('workflow_dispatch').version, '0.1.0', 'Server capture reuses the release after test and CI changes');
   git('commit', '--allow-empty', '-m', 'App change');
   assert.equal(run().version, '0.1.1'); assert.equal(run().code, '1001');
   writeFileSync(join(directory, 'version.properties'), 'versionName=0.1.0\nversionCode=1000\n# runtime change\n');
