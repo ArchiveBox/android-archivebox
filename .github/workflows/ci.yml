@@ -153,11 +153,15 @@ jobs:
           path: artifacts/screenshots/
           if-no-files-found: error
           retention-days: 90
+      - name: Export public Chrome capture diagnostics
+        if: failure()
+        run: uv run --no-project python scripts/export-capture-diagnostics.py "$RUNNER_TEMP/archivebox-capture" artifacts/capture-diagnostics
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: capture-diagnostics
           path: |
+            artifacts/capture-diagnostics/
             artifacts/instrumentation.log
             artifacts/logcat.txt
             artifacts/failed-screenshots/
