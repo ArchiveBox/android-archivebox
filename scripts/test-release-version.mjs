@@ -29,8 +29,10 @@ try {
   writeFileSync(join(directory, 'app/src/test/ReleaseTest.kt'), 'Updated release test\n');
   mkdirSync(join(directory, '.github/workflows'), {recursive: true});
   writeFileSync(join(directory, '.github/workflows/ci.yml'), 'Updated CI\n');
+  mkdirSync(join(directory, 'scripts'), {recursive: true});
+  writeFileSync(join(directory, 'scripts/export-capture-diagnostics.py'), 'Public capture diagnostics only\n');
   git('add', '.'); git('commit', '-m', 'Update capture journey and CI');
-  assert.equal(run('workflow_dispatch').version, '0.1.0', 'Server capture reuses the release after test and CI changes');
+  assert.equal(run('workflow_dispatch').version, '0.1.0', 'Server capture reuses the release after capture-only changes');
   mkdirSync(join(directory, 'app'), {recursive: true});
   writeFileSync(join(directory, 'app/proguard-rules.pro'), '-keep class example.** { *; }\n');
   git('add', '.'); git('commit', '-m', 'Change Android release packaging');

@@ -18,7 +18,8 @@ const head = git('rev-parse', 'HEAD');
 const previous = tags.filter(tag => git('rev-list', '-n', '1', tag) === head).sort((a,b) => compare(parse(b),parse(a)))[0];
 const isCaptureOnlyFile = file => file === 'README.md' || file === '.github/workflows/pages.yml'
   || file === '.github/workflows/ci.yml' || file.startsWith('docs/') || file.startsWith('.github/pages/')
-  || file.startsWith('app/src/androidTest/') || file.startsWith('app/src/test/');
+  || file.startsWith('app/src/androidTest/') || file.startsWith('app/src/test/')
+  || file === 'scripts/export-capture-diagnostics.py';
 let version;
 if (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch') {
   const released = git('tag', '--merged', 'HEAD', '--list', 'v*').split('\n')
