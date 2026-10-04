@@ -23,6 +23,7 @@ try {
   writeFileSync(join(directory, 'README.md'), 'Marketing copy\n');
   git('add', '.'); git('commit', '-m', 'Update marketing copy');
   assert.equal(run('workflow_dispatch').version, '0.1.0', 'Server capture reuses the release after marketing-only commits');
+  assert.equal(run('schedule').version, '0.1.0', 'Scheduled gallery reuses the published version after marketing-only commits');
   mkdirSync(join(directory, 'app/src/androidTest'), {recursive: true});
   writeFileSync(join(directory, 'app/src/androidTest/JourneyTest.kt'), 'Updated capture journey\n');
   mkdirSync(join(directory, 'app/src/test'), {recursive: true});
@@ -37,11 +38,13 @@ try {
   writeFileSync(join(directory, 'app/proguard-rules.pro'), '-keep class example.** { *; }\n');
   git('add', '.'); git('commit', '-m', 'Change Android release packaging');
   assert.throws(() => run('workflow_dispatch'), /Unreleased Android app changes/);
+  assert.throws(() => run('schedule'), /Unreleased Android app changes/);
   git('commit', '--allow-empty', '-m', 'App change');
   assert.equal(run().version, '0.1.1'); assert.equal(run().code, '1001');
   writeFileSync(join(directory, 'version.properties'), 'versionName=0.1.0\nversionCode=1000\n# runtime change\n');
   git('add', '.'); git('commit', '-m', 'Change runtime input');
   assert.throws(() => run('workflow_dispatch'), /Unreleased Android app changes/);
+  assert.throws(() => run('schedule'), /Unreleased Android app changes/);
   git('tag', 'v0.1.999');
   git('commit', '--allow-empty', '-m', 'Next app change');
   assert.equal(run().version, '0.2.0'); assert.equal(run().code, '2000');

@@ -18,7 +18,7 @@
 <a href="https://android.archivebox.io/screenshots/#share"><img src="https://android.archivebox.io/screenshots/share.png" width="28%" alt="ArchiveBox share sheet: save a URL with tags"></a>
 &nbsp;
 <a href="https://android.archivebox.io/screenshots/#search"><img src="https://android.archivebox.io/screenshots/search.png" width="28%" alt="Search your ArchiveBox collection on Android"></a>
-<br><sub>Your collection &nbsp; · &nbsp; Share and tag &nbsp; · &nbsp; Find it again<br>Captured from the Android app. Refreshed with each release.</sub>
+<br><sub>Your collection &nbsp; · &nbsp; Share and tag &nbsp; · &nbsp; Find it again<br>Captured from the Android app. Refreshed twice daily when the app or server changes.</sub>
 </p>
 
 **[ArchiveBox](https://archivebox.io/) saves copies of websites so you can revisit them after they change or disappear.** ArchiveBox for Android brings saving, search, and your collection to your phone and tablet. The server stores the archive; the app keeps it close.
@@ -57,11 +57,11 @@ For Tailscale, connect your Android device to your tailnet first and enter a ser
 
 Prefer HTTPS for servers outside a trusted private network. See [privacy and connection behavior](docs/PRIVACY.md).
 
-## Screenshots that follow each release
+## Screenshots from the running app
 
 The [screenshot gallery](https://android.archivebox.io/screenshots/) covers every major flow: setup, connections, discovery, library, search, snapshots, adding URLs, tags, sharing, save confirmation, activity, settings, the home-screen widget, and every collection and administration page.
 
-Release automation captures the running Android app and rebuilds the GitHub Pages gallery from that capture set. Images carry their app version, commit, device, dimensions, and checksums in a downloadable manifest. The site build refuses incomplete or stale release captures. The README screenshot strip uses the same published images, so it updates alongside the gallery.
+Twice-daily automation captures the running Android app when its source or the ArchiveBox server has changed, then rebuilds the GitHub Pages gallery from that capture set. Images carry their app version, commit, device, dimensions, and checksums in a downloadable manifest. The site build verifies capture completeness and preserves the original source revision. The README screenshot strip uses the same published images, so it updates alongside the gallery.
 
 ## Build from source
 

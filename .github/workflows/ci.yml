@@ -1,5 +1,7 @@
 name: Android build, capture, and release
 on:
+  schedule:
+    - cron: '7 6,18 * * *'
   push:
     branches: [main]
     # Marketing-only updates publish independently through pages.yml.
@@ -11,21 +13,39 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      capture_gallery:
+        description: Refresh the gallery if source or backend inputs changed
+        type: boolean
+        default: false
       archivebox_version:
         description: Released ArchiveBox server version to test (for example 0.9.50)
-        required: true
+        required: false
         type: string
 
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: android-${{ github.event_name == 'pull_request' && github.ref || 'main-release' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-env:
-  BACKEND_REVISION: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.archivebox_version) || 'dev' }}
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+      key: ${{ steps.check.outputs.key }}
+      backend: ${{ steps.check.outputs.backend }}
+    steps:
+      - id: check
+        if: github.event_name == 'schedule' || inputs.capture_gallery
+        uses: ArchiveBox/monorepo/.github/actions/changed-scheduled-inputs@main
+        with:
+          backend: ${{ inputs.archivebox_version && format('v{0}', inputs.archivebox_version) || 'dev' }}
+
   version:
+    needs: changes
+    if: ${{ (github.event_name != 'schedule' && !inputs.capture_gallery) || needs.changes.outputs.changed == 'true' }}
     runs-on: ubuntu-latest
     outputs:
       name: ${{ steps.version.outputs.version }}
@@ -39,7 +59,7 @@ jobs:
         with:
           node-version: 22
       - name: Validate released server version
-        if: github.event_name == 'workflow_dispatch'
+        if: inputs.archivebox_version != ''
         env:
           ARCHIVEBOX_VERSION: ${{ inputs.archivebox_version }}
         run: node -e 'if (!/^\d+\.\d+\.\d+(?:rc\d+)?$/.test(process.env.ARCHIVEBOX_VERSION)) process.exit(1)'
@@ -80,7 +100,10 @@ jobs:
             app/build/test-results/
 
   capture:
-    needs: verify
+    needs: [changes, verify]
+    if: needs.changes.outputs.changed == 'true'
+    env:
+      BACKEND_REVISION: ${{ needs.changes.outputs.backend }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -194,7 +217,7 @@ jobs:
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [version, verify, capture, site]
+    needs: [version, verify]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -246,20 +269,23 @@ jobs:
           grep -q '^jar verified\.' artifacts/bundle-verification.txt
           cd artifacts/releases
           sha256sum ArchiveBox-Android.apk ArchiveBox-Android.aab > SHA256SUMS
-      - uses: actions/download-artifact@v5
-        with:
-          name: android-screenshots
-          path: artifacts/screenshots
-      - name: Publish stable download names and capture provenance
+      - name: Publish stable download names
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
         shell: bash
         run: |
-          tar -czf artifacts/releases/ArchiveBox-Android-screenshots.tar.gz -C artifacts/screenshots .
           node scripts/publish-release-notes.mjs
           gh release upload "$RELEASE_TAG" artifacts/releases/* --clobber
           gh release edit "$RELEASE_TAG" --draft=false --latest --title "$RELEASE_TAG" --notes-file artifacts/release-notes.md
       - name: Remove private signing material
         if: always()
         run: rm -f "$ANDROID_KEYSTORE_PATH"
+
+  complete:
+    name: 'Scheduled inputs: ${{ needs.changes.outputs.key }}'
+    needs: [changes, site]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Scheduled gallery completed successfully.'

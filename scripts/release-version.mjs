@@ -21,7 +21,7 @@ const isCaptureOnlyFile = file => file === 'README.md' || file === '.github/work
   || file.startsWith('app/src/androidTest/') || file.startsWith('app/src/test/')
   || file === 'scripts/export-capture-diagnostics.py';
 let version;
-if (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch') {
+if (['workflow_dispatch', 'schedule'].includes(process.env.GITHUB_EVENT_NAME)) {
   const released = git('tag', '--merged', 'HEAD', '--list', 'v*').split('\n')
     .filter(tag => /^v\d+\.\d+\.\d+$/.test(tag)).sort((a,b) => compare(parse(b),parse(a)))[0];
   if (!released) throw new Error('Server compatibility captures require an existing Android release');
