@@ -31,7 +31,7 @@ jobs:
     outputs:
       revision: ${{ steps.source.outputs.revision }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'pull_request' && github.ref || env.DEFAULT_BRANCH }}
           persist-credentials: false
@@ -40,7 +40,7 @@ jobs:
         run: echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       # BEGIN REPOSITORY-SPECIFIC BUILD
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - uses: astral-sh/setup-uv@v7
@@ -60,7 +60,7 @@ jobs:
           uv run --no-config --no-project --with playwright==1.63.0 python .github/pages/verify.py "$SITE_OUTPUT" --evidence "$RUNNER_TEMP/site-evidence"
       - name: Save website verification evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: site-verification
           path: ${{ runner.temp }}/site-evidence
@@ -68,7 +68,7 @@ jobs:
           retention-days: 14
 
       - name: Upload website
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ${{ env.SITE_OUTPUT }}
 
@@ -85,6 +85,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/configure-pages@v5
-      - uses: actions/deploy-pages@v4
+      - uses: actions/configure-pages@v6
+      - uses: actions/deploy-pages@v5
         id: deployment
