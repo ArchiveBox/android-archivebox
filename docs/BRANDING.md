@@ -8,4 +8,4 @@ The shared navigation, footer, icons and styles are independent copies in `.gith
 
 The landing page's small Android-inspired outline is inline SVG, drawn for this repository. The Android name belongs to Google. This project is not affiliated with Google.
 
-Application and website source are GPL-3.0-only; see [LICENSE](../LICENSE). Existing ArchiveBox branding is reused to identify this ArchiveBox client and is not a separate trademark license.
+Application and website source are MIT; see [LICENSE](../LICENSE). Existing ArchiveBox branding is reused to identify this ArchiveBox client and is not a separate trademark license.

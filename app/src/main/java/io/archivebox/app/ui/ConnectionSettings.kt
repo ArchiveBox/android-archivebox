@@ -201,7 +201,7 @@ import kotlinx.coroutines.CancellationException
         TextButton(onClick = onGuide, modifier = Modifier.testTag("setup.reopen")) { Icon(Icons.Outlined.HelpOutline, null); Spacer(Modifier.width(8.dp)); Text("Open setup guide") }
         if (connection != null) TextButton(onClick = { disconnect = true }, modifier = Modifier.testTag("connection.disconnect")) { Text("Disconnect from server", color = MaterialTheme.colorScheme.error) }
         Text("Your API key is encrypted on this device. Shared URLs go only to the server you choose. No tracking or analytics.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("ArchiveBox ${BuildConfig.VERSION_NAME} · GPL-3.0-only", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("settings.version"))
+        Text("ArchiveBox ${BuildConfig.VERSION_NAME} · MIT", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("settings.version"))
     }
     forget?.let { saved ->
         AlertDialog(onDismissRequest = { forget = null }, title = { Text("Forget this server?") },
