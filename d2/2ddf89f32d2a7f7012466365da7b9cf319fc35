@@ -1,0 +1,16 @@
+app/src/androidTest/java/io/archivebox/app/ArchiveBoxJourneyTest.kt
+  h_923c208e183a7b 182
+app/src/androidTest/java/io/archivebox/app/WidgetJourneyTest.kt
+  h_923c208e183a7b 28,34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d22ddf89f32d2a7f7012466365da7b9cf319fc35",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
