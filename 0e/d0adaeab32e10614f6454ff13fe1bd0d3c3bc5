@@ -1,0 +1,16 @@
+.github/workflows/ci.yml
+  h_923c208e183a7b 156-158,164
+scripts/export-capture-diagnostics.py
+  h_923c208e183a7b 1-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0ed0adaeab32e10614f6454ff13fe1bd0d3c3bc5",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
