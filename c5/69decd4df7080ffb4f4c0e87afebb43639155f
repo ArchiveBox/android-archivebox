@@ -1,0 +1,20 @@
+LICENSE
+  h_923c208e183a7b 1-21
+README.md
+  h_923c208e183a7b 7,89
+app/src/main/java/io/archivebox/app/ui/ConnectionSettings.kt
+  h_923c208e183a7b 204
+docs/BRANDING.md
+  h_923c208e183a7b 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c569decd4df7080ffb4f4c0e87afebb43639155f",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
