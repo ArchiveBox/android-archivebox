@@ -1,0 +1,24 @@
+.github/pages/base/footer-start.html
+  h_923c208e183a7b 13
+docs/ar/index.html
+  h_923c208e183a7b 86
+docs/es/index.html
+  h_923c208e183a7b 86
+docs/fr/index.html
+  h_923c208e183a7b 86
+docs/ru/index.html
+  h_923c208e183a7b 86
+docs/zh/index.html
+  h_923c208e183a7b 86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f72a2e841a3e4b55fa54026682ff4b5534f70a7a",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
