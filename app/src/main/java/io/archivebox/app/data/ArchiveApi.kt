@@ -173,6 +173,26 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
             JSONObject().put("tags", JSONArray(normalized)), "PATCH")
         require(result.getString("id") == receipt.crawl_id &&
             normalizeTags(listOf(result.getString("tags_str"))).map(String::lowercase).toSet() == normalized.map(String::lowercase).toSet()) { "Server did not confirm the tag update." }
+        // Crawl tags are defaults for snapshots created later. Explicit share
+        // edits must also update this submission's existing snapshots.
+        var offset = 0
+        while (true) {
+            val page = request(connection.server, "api/v1/core/snapshots", connection.token,
+                query = mapOf("crawl_id" to receipt.crawl_id, "limit" to "100", "offset" to offset.toString()))
+            val items = page.getJSONArray("items").objects()
+            for (snapshot in items) {
+                if (snapshot.getString("crawl_id") != receipt.crawl_id || snapshot.getString("url") !in receipt.queued_urls) continue
+                val id = snapshot.getString("id")
+                require(validId(id)) { "Server returned an invalid snapshot ID." }
+                val updated = request(connection.server, "api/v1/core/snapshot/$id", connection.token,
+                    JSONObject().put("tags", JSONArray(normalized)), "PATCH")
+                require(updated.getString("id") == id && updated.getString("crawl_id") == receipt.crawl_id &&
+                    normalizeTags(updated.getJSONArray("tags").strings()).map(String::lowercase).toSet() == normalized.map(String::lowercase).toSet()) { "Server did not confirm the snapshot tag update." }
+            }
+            offset += items.size
+            if (offset >= page.getInt("total_items")) break
+            check(items.isNotEmpty()) { "Server returned an incomplete snapshot list." }
+        }
     }
 
     suspend fun removeSubmission(connection: ServerConfiguration, receipt: SubmissionReceipt) {
