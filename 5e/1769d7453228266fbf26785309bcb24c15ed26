@@ -1,0 +1,19 @@
+app/src/main/java/io/archivebox/app/data/ArchiveApi.kt
+  s_8dbda046044e96::t_95d4fafb1345af 176-195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5e1769d7453228266fbf26785309bcb24c15ed26",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
