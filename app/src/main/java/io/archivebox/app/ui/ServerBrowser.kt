@@ -33,7 +33,8 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
     val source = server.toHttpUrlOrNull() ?: return false
     val base = source.host.replace(Regex("^(admin|web|api)\\."), "")
     return target.scheme == source.scheme && target.port == source.port &&
-        Regex("snap-[0-9a-f]{12}\\.${Regex.escape(base)}").matches(target.host)
+        (target.host == "web.$base" ||
+            Regex("snap-[0-9a-f]{12}\\.${Regex.escape(base)}").matches(target.host))
 }
 
 @SuppressLint("SetJavaScriptEnabled")

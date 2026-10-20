@@ -60,4 +60,19 @@ class AddressTest {
         )) assertFalse(url, allowedArchiveOrigin(url, server, admin))
         assertFalse(allowedArchiveOrigin("https://snap-012345abcdef.example/", "https://web.admin.example/", "https://admin.admin.example/admin/"))
     }
+
+    @Test fun snapshotLinksFromSplitHostAdminStayInTheApp() {
+        val server = "https://api.archive.example:5797/"
+        val admin = "https://admin.archive.example:5797/admin/"
+        assertTrue(allowedArchiveOrigin("https://web.archive.example:5797/web/20261020/example.com/0123456789abcdef0123456789abcdef", server, admin))
+        for (url in listOf(
+            "http://web.archive.example:5797/web/",
+            "https://web.archive.example/web/",
+            "https://web.archive.example.attacker.test:5797/web/",
+            "https://other.archive.example:5797/web/",
+            "https://user:password@web.archive.example:5797/web/",
+            "https://web.example:5797/web/",
+        )) assertFalse(url, allowedArchiveOrigin(url, server, admin))
+        assertFalse(allowedArchiveOrigin("https://web.example/", "https://api.admin.example/", "https://admin.admin.example/admin/"))
+    }
 }
