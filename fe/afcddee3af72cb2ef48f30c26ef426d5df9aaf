@@ -1,0 +1,21 @@
+app/src/test/java/io/archivebox/app/data/AddressTest.kt
+  s_10bc94d001be49::t_3be10c99107e2b 63-77
+app/src/main/java/io/archivebox/app/ui/ServerBrowser.kt
+  s_10bc94d001be49::t_1a09cf4486d8bf 36-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "feafcddee3af72cb2ef48f30c26ef426d5df9aaf",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
