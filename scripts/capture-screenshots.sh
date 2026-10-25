@@ -46,7 +46,7 @@ adb install --no-streaming -r "$test_apk"
 api_token=$(cat "$server/api-token")
 if [[ "${GITHUB_ACTIONS:-}" == true ]]; then printf '::add-mask::%s\n' "$api_token"; fi
 adb shell am instrument -w -r \
-    -e class io.archivebox.app.ArchiveBoxJourneyTest,io.archivebox.app.WidgetJourneyTest,io.archivebox.app.VisualProfilesTest \
+    -e class io.archivebox.app.BrowserSessionIntegrationTest,io.archivebox.app.ArchiveBoxJourneyTest,io.archivebox.app.WidgetJourneyTest,io.archivebox.app.VisualProfilesTest \
     -e serverUrl http://127.0.0.1:5797 \
     -e apiToken "$api_token" \
     io.archivebox.app.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/instrumentation.log

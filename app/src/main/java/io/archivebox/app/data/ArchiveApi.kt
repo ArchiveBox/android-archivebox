@@ -5,6 +5,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.ConnectionPool
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -65,6 +66,9 @@ fun sameOrigin(a: String, b: String): Boolean = runCatching {
 class ArchiveApi(timeoutSeconds: Long = 20) {
     private val client = OkHttpClient.Builder()
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
+        // A server can close an idle socket before OkHttp's 10s health-check window.
+        // Do not retain idle connections: retrying an uncertain POST could submit twice.
+        .connectionPool(ConnectionPool(0, 5, TimeUnit.MINUTES))
         .connectTimeout(minOf(timeoutSeconds, 5), TimeUnit.SECONDS)
         .callTimeout(timeoutSeconds, TimeUnit.SECONDS).build()
 
