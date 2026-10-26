@@ -41,8 +41,10 @@ abx config --set SEARCH_BACKEND_ENGINE=sqlite SEARCH_BACKEND_SONIC_ENABLED=False
 abx persona create 'Research browser'
 abx install opencode --binproviders=env,pnpm
 abx install chrome wget title headers screenshot
+# Known-content UI assertions use a maintained public fixture shared with the
+# downloader tests, rather than marketing pages that have begun rate limiting.
 abx add --depth=0 --tag=reference,research --plugins=title,headers,wget,screenshot,search_backend_sqlite \
-    https://example.com https://archivebox.io
+    https://cowpig.github.io/about/ https://cowpig.github.io/
 server_pid=''
 complete=0
 cleanup() {

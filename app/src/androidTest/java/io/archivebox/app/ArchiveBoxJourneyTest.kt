@@ -161,22 +161,22 @@ class ArchiveBoxJourneyTest {
         shot("library")
         click("tab.Archive")
         compose.onNodeWithTag("home").performScrollToNode(hasTestTag("sidebar.searchField"))
-        fill("sidebar.searchField", "example.com")
+        fill("sidebar.searchField", "cowpig.github.io")
         click("sidebar.searchMode")
         compose.onNodeWithText("Metadata").performClick()
         click("sidebar.searchSubmit")
         await("browser.ready")
-        val exampleId = snapshots("example.com").first { it.getString("url").trimEnd('/') == "https://example.com" }.getString("id")
+        val snapshotId = snapshots("cowpig.github.io").first { it.getString("url") == "https://cowpig.github.io/about/" }.getString("id")
         val inputValue = Atoms.script("function(element) { return element.value; }", Atoms.castOrDie(String::class.java))
         onWebView().withElement(findElement(Locator.CSS_SELECTOR, "input[name=q]"))
-            .check(webMatches(inputValue, equalTo("example.com")))
+            .check(webMatches(inputValue, equalTo("cowpig.github.io")))
         onWebView().withElement(findElement(Locator.CSS_SELECTOR, "select[name=search_mode]"))
             .check(webMatches(inputValue, equalTo("meta")))
-        val resultRow = "//input[@name='_selected_action' and @value='$exampleId']/ancestor::tr"
+        val resultRow = "//input[@name='_selected_action' and @value='$snapshotId']/ancestor::tr"
         onWebView().withElement(findElement(Locator.XPATH, resultRow))
-            .check(webMatches(getText(), containsString("example.com")))
+            .check(webMatches(getText(), containsString("cowpig.github.io")))
         onWebView().withElement(findElement(Locator.XPATH, resultRow))
-            .check(webMatches(getText(), containsString("Example Domain")))
+            .check(webMatches(getText(), containsString("About Me")))
         shot("search")
         onWebView().withElement(findElement(Locator.XPATH,
             "$resultRow//td[contains(@class, 'field-title_str')]/a[contains(@class, 'snapshot-title-detail-hitbox')]"))
@@ -209,7 +209,7 @@ class ArchiveBoxJourneyTest {
         val archivedImage = device.wait(Until.findObject(By.desc("Screenshot of page")), 10_000)
         assertNotNull("The expanded replay must display its screenshot", archivedImage)
         assertTrue("The full screenshot must be visible, not its thumbnail", archivedImage!!.visibleBounds.height() > 300)
-        val screenshot = URL("${server.trimEnd('/')}/snapshot/$exampleId/screenshot/screenshot.png").openConnection() as HttpURLConnection
+        val screenshot = URL("${server.trimEnd('/')}/snapshot/$snapshotId/screenshot/screenshot.png").openConnection() as HttpURLConnection
         screenshot.setRequestProperty("X-ArchiveBox-API-Key", token)
         screenshot.connectTimeout = 10_000
         screenshot.readTimeout = 10_000
@@ -223,7 +223,7 @@ class ArchiveBoxJourneyTest {
         shot("snapshot")
 
         click("tab.Add")
-        fill("add.urls", "https://example.com")
+        fill("add.urls", "https://cowpig.github.io/about/")
         shot("add")
         fill("add.tags", "ref")
         click("suggestedTag.reference", scroll = true)
@@ -232,7 +232,7 @@ class ArchiveBoxJourneyTest {
         click("add.tagsConfirm")
         shot("tags")
 
-        val sharedUrl = "https://example.com/?archivebox-android-test=${System.currentTimeMillis()}"
+        val sharedUrl = "https://cowpig.github.io/about/?archivebox-android-test=${System.currentTimeMillis()}"
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, sharedUrl)
