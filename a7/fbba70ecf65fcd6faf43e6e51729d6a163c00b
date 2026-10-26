@@ -1,0 +1,22 @@
+app/src/androidTest/java/io/archivebox/app/ArchiveBoxJourneyTest.kt
+  s_10bc94d001be49::t_38c14851f774f1 179
+  s_10bc94d001be49::t_a4897214eceea6 164,169,172,175,177,212,226,235
+scripts/start-screenshot-server.sh
+  s_10bc94d001be49::t_579630d563d96c 44-45,47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a7fbba70ecf65fcd6faf43e6e51729d6a163c00b",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
