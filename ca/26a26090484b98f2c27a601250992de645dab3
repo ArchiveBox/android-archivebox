@@ -1,0 +1,28 @@
+app/src/androidTest/java/io/archivebox/app/ArchiveBoxJourneyTest.kt
+  s_532dc92fd8220a::t_fc172ca182a598 186-188
+  s_532dc92fd8220a::t_0a76a3348c5c13 182
+app/src/androidTest/java/io/archivebox/app/WidgetJourneyTest.kt
+  s_532dc92fd8220a::t_58ee56bfa8d9cd 10,29-30
+  s_532dc92fd8220a::t_7b59f248774ebd 25
+  s_532dc92fd8220a::t_96e37d18aea175 7,26,28
+  s_532dc92fd8220a::t_3825abeaad703a 27
+app/src/androidTest/java/io/archivebox/app/VisualProfilesTest.kt
+  s_532dc92fd8220a::t_7b59f248774ebd 30
+  s_532dc92fd8220a::t_58ee56bfa8d9cd 11-12,14,29,31-40,50-52,57,69,76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ca26a26090484b98f2c27a601250992de645dab3",
+  "prompts": {},
+  "sessions": {
+    "s_532dc92fd8220a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1de5f-032c-7ff0-8973-1527da1bc86e",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
