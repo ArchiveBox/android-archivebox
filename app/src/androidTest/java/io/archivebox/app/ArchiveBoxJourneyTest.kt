@@ -179,11 +179,13 @@ class ArchiveBoxJourneyTest {
             .check(webMatches(getText(), containsString("About Me")))
         shot("search")
         onWebView().withElement(findElement(Locator.XPATH,
-            "$resultRow//td[contains(@class, 'field-title_str')]/a[contains(@class, 'snapshot-title-detail-hitbox')]"))
+            "$resultRow//td[contains(@class, 'field-title_str')]/a[b[normalize-space()='About Me']]"))
             .perform(webClick())
         await("browser.ready")
         compose.onAllNodesWithTag("error").assertCountEquals(0)
-        onWebView().withElement(findElement(Locator.CSS_SELECTOR, ".output-stack-raster")).perform(webClick())
+        onWebView().withElement(findElement(Locator.XPATH,
+            "//button[contains(@class, concat('output-stack-', //div[@data-plugin-name='screenshot']/@data-output-group))]"))
+            .perform(webClick())
         onWebView().withElement(findElement(Locator.CSS_SELECTOR,
             ".thumb-card[data-plugin-name='screenshot'] a[target='preview']")).perform(webClick())
         // Hide the output cards with the server's own header control so the

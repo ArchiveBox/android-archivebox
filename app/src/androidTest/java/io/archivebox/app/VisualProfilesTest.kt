@@ -8,7 +8,10 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.waitForStable
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -23,6 +26,18 @@ class VisualProfilesTest {
     private val device get() = UiDevice.getInstance(instrumentation)
     private val context get() = instrumentation.targetContext
     private fun shell(command: String) = device.executeShellCommand(command)
+    private fun awaitConfiguration(matches: (Configuration) -> Boolean) {
+        // Application resources update before the Activity finishes relaunching.
+        compose.waitUntil(10_000) {
+            var ready = false
+            instrumentation.runOnMainSync {
+                ready = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                    .filterIsInstance<MainActivity>()
+                    .any { it.hasWindowFocus() && matches(it.resources.configuration) }
+            }
+            ready
+        }
+    }
     private fun awaitHome() {
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("tab.Archive").fetchSemanticsNodes().isNotEmpty() }
         if (compose.onAllNodesWithTag("share.sheet").fetchSemanticsNodes().isNotEmpty()) device.pressBack()
@@ -32,11 +47,14 @@ class VisualProfilesTest {
     private fun capture(id: String, dark: Boolean = false) {
         compose.waitForIdle()
         device.waitForIdle()
+        val window = requireNotNull(instrumentation.uiAutomation.windows.firstOrNull { it.isActive })
+        assertTrue("ArchiveBox must own the captured window", window.root?.packageName == context.packageName)
+        assertTrue("The rendered app must settle before capture", !window.waitForStable().isTimeout)
         val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
         try {
-            if (dark) assertTrue("The rendered app background must actually be dark", Color.luminance(bitmap.getPixel(bitmap.width - 8, bitmap.height / 2)) < 0.2f)
             val output = File(context.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
             File(output, "$id.png").outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+            if (dark) assertTrue("The rendered app background must actually be dark", Color.luminance(bitmap.getPixel(bitmap.width - 8, bitmap.height / 2)) < 0.2f)
         } finally { bitmap.recycle() }
     }
 
@@ -48,14 +66,14 @@ class VisualProfilesTest {
         try {
             awaitHome()
             shell("cmd uimode night yes")
-            compose.waitUntil(10_000) { context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES }
+            awaitConfiguration { it.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES }
             awaitHome()
             capture("dark-mode", dark = true)
 
             shell("cmd uimode night no")
             shell("wm size 1280x800")
             shell("wm density 160")
-            compose.waitUntil(10_000) { context.resources.configuration.screenWidthDp >= 700 }
+            awaitConfiguration { it.screenWidthDp >= 700 }
             awaitHome()
             compose.onNodeWithTag("navigation.rail").assertIsDisplayed()
             compose.onNodeWithTag("tab.Search").assertIsDisplayed()

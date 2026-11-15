@@ -4,8 +4,10 @@ import android.graphics.Bitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Condition
 import androidx.test.uiautomator.Until
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.waitForStable
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,6 +22,12 @@ class WidgetJourneyTest {
         val output = File(instrumentation.targetContext.getExternalFilesDir(null), "screenshots").apply { mkdirs() }
         device.pressHome()
         device.waitForIdle()
+        // An idle accessibility tree can still describe the outgoing app window.
+        assertTrue("The launcher must become the active window", device.wait(Condition<UiDevice, Boolean> {
+            instrumentation.uiAutomation.windows.any { it.isActive && it.root?.packageName == "com.google.android.apps.nexuslauncher" }
+        }, 5_000))
+        val launcher = requireNotNull(instrumentation.uiAutomation.windows.firstOrNull { it.isActive })
+        assertTrue("The launcher must settle before the workspace long press", !launcher.waitForStable().isTimeout)
         val widgetSearch = By.res("io.archivebox.app", "widget_search")
         if (!device.hasObject(widgetSearch)) {
             // Long-press the actual launcher workspace to open its widget menu.
