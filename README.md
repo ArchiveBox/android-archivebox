@@ -34,7 +34,7 @@
 
 1. **Install the beta.** Download [ArchiveBox-Android.apk](https://github.com/ArchiveBox/android-archivebox/releases/latest/download/ArchiveBox-Android.apk) from GitHub Releases. Android may ask you to allow installation from your browser. Release downloads appear after the first successful signed release.
 2. **Choose a home for your archive.** Run [ArchiveBox Server](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart) on your computer, home server, or hosting provider. Already set up? Choose **Connect to existing server** in the first-run guide.
-3. **Connect.** Open **Connection Settings**, enter a server URL and API key, and verify the connection. Use the address reachable from your phone; `localhost` refers to the phone itself.
+3. **Connect.** Open **Connection Settings**, enter a server URL, and choose **Get Key** to sign in and save your API key automatically. You can also paste a key and choose **Test & save**. Use the address reachable from your phone; `localhost` refers to the phone itself.
 4. **Save your first link.** In your browser or another app, tap **Share → ArchiveBox**, add tags, and save. Open Search or Snapshots to find it after the server finishes archiving.
 
 The app is a client. Your server must be awake and reachable for saving, search, and browsing. ArchiveBox server features and administration permissions determine which server pages are available.
@@ -50,6 +50,8 @@ Android intents support incoming shared text and app links. Long-press the launc
 **Connection Settings → Discover servers** checks nearby candidates on port **5797**. Discovery identifies servers; it does not send your API key to discovered addresses. It checks remembered addresses, reports scan progress, and continues listening for Bonjour servers while Connection Settings is open. Select a result, then authenticate with that server.
 
 Verified connections are remembered on this device with encrypted API keys. Select a remembered connection in Connection Settings, or use the server dropdown on the main menu when more than one connection has an API key. Switching the server you browse preserves your default share destination. Use **Forget** to remove a saved connection from this device.
+
+If a saved key expires, choose **Get Key** again. This removes that server's old key before opening login, without changing its identity, persona, or share defaults. Cancel leaves the old key removed. Recovery accepts a key only from that server's administrator page and verifies it before saving; changing connections or leaving login prevents an older recovery from saving.
 
 Search directly from the main menu. The search icon opens a mode menu with the server default, metadata, and full-text options; available modes refresh from the server. Results open in an authenticated embedded server page.
 

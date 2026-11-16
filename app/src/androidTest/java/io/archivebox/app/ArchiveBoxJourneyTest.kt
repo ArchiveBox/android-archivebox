@@ -306,6 +306,8 @@ class ArchiveBoxJourneyTest {
         shot("server-browser")
         val routes = listOf(
             "Crawls" to "crawls", "Scheduled Crawls" to "scheduled-crawls",
+            "Importers" to "importers", "Domains" to "domains", "Rules Engine" to "rules-engine",
+            "System Settings" to "system-settings",
             "Archive Results" to "archive-results", "Tags" to "server-tags", "AI Agent" to "ai-agent",
             "Users" to "users", "Personas" to "personas", "API Keys" to "api-keys",
             "Webhooks" to "webhooks", "Processes" to "processes", "Machines" to "machines",

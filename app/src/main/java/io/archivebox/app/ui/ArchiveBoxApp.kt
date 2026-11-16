@@ -44,11 +44,16 @@ internal val collectionRoutes = listOf(
     ServerRoute("AI Agent", "admin/agent/", Icons.Outlined.AutoAwesome),
     ServerRoute("Crawls", "admin/crawls/crawl/", Icons.Outlined.TravelExplore),
     ServerRoute("Scheduled Crawls", "admin/crawls/crawlschedule/", Icons.Outlined.CalendarMonth),
+    ServerRoute("Importers", "admin/importers/", Icons.Outlined.Download),
+    ServerRoute("Domains", "admin/domains/", Icons.Outlined.Language),
+    ServerRoute("Rules Engine", "admin/webhooks/", Icons.Outlined.Tune),
     ServerRoute("Archive Results", "admin/core/archiveresult/", Icons.Outlined.Description),
     ServerRoute("Tags", "admin/core/tag/", Icons.Outlined.Sell),
 )
 internal val adminRoutes = listOf(
     ServerRoute("Admin", "admin/", Icons.Outlined.Dashboard),
+    // Core's fallback when the native client has not resolved the current machine.
+    ServerRoute("System Settings", "admin/machine/machine/", Icons.Outlined.Settings),
     ServerRoute("Users", "admin/auth/user/", Icons.Outlined.Group),
     ServerRoute("Personas", "admin/personas/persona/", Icons.Outlined.AccountCircle),
     ServerRoute("API Keys", "admin/api/apitoken/", Icons.Outlined.Key),

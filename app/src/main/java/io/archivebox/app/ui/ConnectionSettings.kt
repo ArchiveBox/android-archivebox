@@ -1,9 +1,7 @@
 package io.archivebox.app.ui
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.view.View
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -40,6 +38,7 @@ import kotlinx.coroutines.CancellationException
     var server by rememberSaveable { mutableStateOf(connection?.server.orEmpty()) }
     // Credentials intentionally remain in memory, never in Android's saved-instance bundle.
     var token by remember { mutableStateOf(connection?.takeIf { sameOrigin(it.server, server) }?.token.orEmpty()) }
+    var loginAttempt by remember { mutableStateOf<ServerLoginAttempt?>(null) }
     var showToken by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
@@ -55,9 +54,10 @@ import kotlinx.coroutines.CancellationException
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val view = LocalView.current
-    DisposableEffect(view) {
+    DisposableEffect(view, loginAttempt) {
         val previous = view.importantForAutofill
-        view.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        // Keep API keys out of autofill, but let Android's password manager fill the server login.
+        view.importantForAutofill = if (loginAttempt == null) View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS else View.IMPORTANT_FOR_AUTOFILL_AUTO
         onDispose { view.importantForAutofill = previous }
     }
     fun editServer(value: String) {
@@ -78,9 +78,28 @@ import kotlinx.coroutines.CancellationException
     }
     LaunchedEffect(incoming?.nonce) {
         if (incoming != null) {
+            loginAttempt?.cancel(); loginAttempt = null
             server = incoming.server.orEmpty(); token = incoming.token.orEmpty()
             status = "Review this connection request, then test and save it. Your saved connection hasn't changed."
             onRequestConsumed()
+        }
+    }
+    fun getKey() {
+        val requestedServer = server
+        withNetworkPermission login@ {
+            if (server != requestedServer) return@login
+            scope.launch {
+                busy = true; error = null; status = null
+                try {
+                    scanJob?.cancelAndJoin()
+                    loginAttempt?.cancel()
+                    // Clear both the form and encrypted saved key before any login navigation.
+                    token = ""; showToken = false
+                    loginAttempt = repository.beginServerLogin(requestedServer)
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (e: Exception) { error = e.message ?: "Couldn't open server login." }
+                finally { busy = false }
+            }
         }
     }
     fun check(save: Boolean) {
@@ -133,6 +152,19 @@ import kotlinx.coroutines.CancellationException
             scan()
         }
     }
+    loginAttempt?.let { attempt ->
+        ServerLogin(repository, attempt, onComplete = { recovered ->
+            if (loginAttempt === attempt) {
+                server = attempt.connection.server; token = recovered; showToken = false
+                status = "Your API key for ${attempt.connection.name} was refreshed and saved on this device."
+                loginAttempt = null
+            }
+        }, onCancel = {
+            attempt.cancel(); loginAttempt = null
+            status = "Login cancelled. The old API key has been removed; use Get Key or enter a new key."
+        })
+        return
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(24.dp)) {
             Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -147,8 +179,12 @@ import kotlinx.coroutines.CancellationException
                     scope.launch {
                         busy = true; error = null
                         try {
-                            repository.selectConnection(saved.id)
                             server = saved.server; token = saved.token; showToken = false
+                            if (saved.token.isBlank()) {
+                                status = "Choose Get Key to sign in to ${saved.name} again."
+                                return@launch
+                            }
+                            repository.selectConnection(saved.id)
                             status = "Checking ${saved.name}…"
                             repository.api.discover(saved.server)
                             repository.api.testToken(saved)
@@ -172,9 +208,7 @@ import kotlinx.coroutines.CancellationException
         }
         OutlinedTextField(server, { editServer(it) }, enabled = !busy, label = { Text("Server URL") }, placeholder = { Text("http://archivebox.local:5797") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), singleLine = true, modifier = Modifier.fillMaxWidth().testTag("connection.url"), leadingIcon = { Icon(Icons.Outlined.Link, null) })
         OutlinedTextField(token, { token = it; status = null }, enabled = !busy, label = { Text("API key") }, singleLine = true, visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth().testTag("connection.token"), leadingIcon = { Icon(Icons.Outlined.Key, null) }, trailingIcon = { IconButton(onClick = { showToken = !showToken }) { Icon(if (showToken) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (showToken) "Hide API key" else "Show API key") } })
-        TextButton(onClick = {
-            runCatching { normalizeServer(server) }.onSuccess { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("${it.trimEnd('/')}/admin/api/apitoken/"))) }.onFailure { error = it.message }
-        }, enabled = server.isNotBlank()) { Icon(Icons.Outlined.OpenInNew, null); Spacer(Modifier.width(8.dp)); Text("Get an API key from your server") }
+        TextButton(onClick = { getKey() }, enabled = !busy && server.isNotBlank(), modifier = Modifier.testTag("connection.getKey")) { Icon(Icons.Outlined.Key, null); Spacer(Modifier.width(8.dp)); Text("Get Key") }
         error?.let { ErrorCard(it) }
         status?.let { Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = RoundedCornerShape(16.dp), modifier = Modifier.testTag("connection.status")) { Text(it, Modifier.fillMaxWidth().padding(16.dp)) } }
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())

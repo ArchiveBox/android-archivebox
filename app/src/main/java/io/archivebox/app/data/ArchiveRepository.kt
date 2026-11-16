@@ -9,6 +9,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
@@ -19,10 +21,21 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+/** Bound to one explicit Get Key action, never to whichever server happens to be selected later. */
+class ServerLoginAttempt internal constructor(val connection: ServerConfiguration, internal val revision: Long, internal val existed: Boolean) {
+    @Volatile internal var cancelled = false
+    fun cancel() { cancelled = true }
+}
+
 class ArchiveRepository(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("archivebox", Context.MODE_PRIVATE)
     val api = ArchiveApi()
-    companion object { private val writeLock = Mutex() }
+    companion object {
+        private val writeLock = Mutex()
+        // In-process attempts do not survive process recreation. Every persisted edit, including
+        // switching away and back via another repository instance, invalidates an older attempt.
+        private var registryRevision = 0L
+    }
     private val _registry = MutableStateFlow(readRegistry())
     val registry = _registry.asStateFlow()
     private val preferencesChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -56,7 +69,42 @@ class ArchiveRepository(context: Context) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
         val encrypted = Base64.encodeToString(cipher.iv + cipher.doFinal(json.toString().toByteArray()), Base64.NO_WRAP)
         check(prefs.edit().putString("server_registry", encrypted).commit()) { "Could not save server settings." }
+        registryRevision++
         _registry.value = registry
+    }
+
+    suspend fun beginServerLogin(server: String): ServerLoginAttempt = withContext(Dispatchers.IO) {
+        writeLock.withLock {
+            val canonical = normalizeServer(server)
+            val current = readRegistry()
+            val previous = current.servers.find { normalizeServer(it.server) == canonical }
+            val target = previous?.copy(token = "") ?: ServerConfiguration(
+                name = java.net.URI(canonical).host ?: canonical, server = canonical, token = "",
+            )
+            // Persist removal before opening login, without changing identity/persona/selection/defaults.
+            if (previous != null) persistRegistry(current.upsert(target)) else registryRevision++
+            ServerLoginAttempt(target, registryRevision, previous != null)
+        }
+    }
+
+    suspend fun completeServerLogin(attempt: ServerLoginAttempt, token: String) = withContext(Dispatchers.IO) {
+        writeLock.withLock {
+            check(!attempt.cancelled && attempt.revision == registryRevision) { "Server settings changed. Start Get Key again." }
+        }
+        val recovered = attempt.connection.copy(token = token.trim())
+        api.testToken(recovered)
+        writeLock.withLock {
+            currentCoroutineContext().ensureActive()
+            check(!attempt.cancelled && attempt.revision == registryRevision) { "Server settings changed. Start Get Key again." }
+            val current = readRegistry()
+            check(!attempt.existed || current.servers.find { it.id == recovered.id } == attempt.connection) {
+                "This connection changed. Start Get Key again."
+            }
+            val updated = current.upsert(recovered)
+            persistRegistry(if (attempt.existed) updated else updated.copy(active_server_id = recovered.id, default_server_ids = listOf(recovered.id)))
+            attempt.cancel()
+            dismissSetup()
+        }
     }
 
     suspend fun saveConnection(connection: ServerConfiguration, select: Boolean = true) = withContext(Dispatchers.IO) {
