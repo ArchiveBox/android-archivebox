@@ -95,6 +95,31 @@ internal class NavigationState : ViewModel() {
     var connectionRequest by navigation.connectionRequest
     var preventShareDismiss by remember { mutableStateOf(false) }
     var routeError by remember { mutableStateOf<String?>(null) }
+    var recovery by remember { mutableStateOf<ServerConfiguration?>(null) }
+    recovery?.takeIf { it == connection }?.let { saved ->
+        RecoverySignIn(repository, saved, onDismiss = { recovery = null })
+    }
+    LaunchedEffect(connection?.id, connection?.token) {
+        val saved = connection ?: return@LaunchedEffect
+        // Explicit incoming actions retain precedence over cold-launch recovery.
+        if (incoming != null || saved.token.isBlank()) return@LaunchedEffect
+        try {
+            repository.api.testToken(saved)
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: io.archivebox.app.data.ApiKeyRejectedException) {
+            if (repository.registry.value.active_server != saved) return@LaunchedEffect
+            browserPath = null
+            screen = "Settings"
+            // Clear only the editable draft. Registry credentials remain intact
+            // until Test & save verifies and durably commits a replacement.
+            connectionRequest = IncomingRequest("connect", server = saved.server)
+            recovery = saved
+        } catch (_: Exception) {
+            // Network, HTTP authorization, and malformed-response errors are
+            // not proof that the saved key was revoked. Keep the normal UI.
+        }
+    }
     LaunchedEffect(incoming?.nonce) {
         incoming ?: return@LaunchedEffect
         repository.dismissSetup()
