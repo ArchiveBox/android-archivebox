@@ -46,13 +46,15 @@ internal val collectionRoutes = listOf(
     ServerRoute("Scheduled Crawls", "admin/crawls/crawlschedule/", Icons.Outlined.CalendarMonth),
     ServerRoute("Archive Results", "admin/core/archiveresult/", Icons.Outlined.Description),
     ServerRoute("Tags", "admin/core/tag/", Icons.Outlined.Sell),
+    ServerRoute("Domains", "admin/domains/", Icons.Outlined.TravelExplore),
+    ServerRoute("Importers", "admin/importers/", Icons.Outlined.Downloading),
 )
 internal val adminRoutes = listOf(
     ServerRoute("Admin", "admin/", Icons.Outlined.Dashboard),
     ServerRoute("Users", "admin/auth/user/", Icons.Outlined.Group),
     ServerRoute("Personas", "admin/personas/persona/", Icons.Outlined.AccountCircle),
     ServerRoute("API Keys", "admin/api/apitoken/", Icons.Outlined.Key),
-    ServerRoute("Webhooks", "admin/api/outboundwebhook/", Icons.Outlined.Webhook),
+    ServerRoute("Rules Engine", "admin/rules/", Icons.Outlined.Webhook),
     ServerRoute("Processes", "admin/machine/process/", Icons.Outlined.Memory),
     ServerRoute("Machines", "admin/machine/machine/", Icons.Outlined.Computer),
     ServerRoute("Network Interfaces", "admin/machine/networkinterface/", Icons.Outlined.Lan),

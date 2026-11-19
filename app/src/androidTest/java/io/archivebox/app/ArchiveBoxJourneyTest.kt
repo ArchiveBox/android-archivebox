@@ -36,6 +36,10 @@ import java.net.URLEncoder
 class ArchiveBoxJourneyTest {
     private companion object {
         const val PROVIDER_SETUP_TEXT = "Set up your preferred model provider first"
+        val currentPath = Atoms.script(
+            "function() { return window.location.pathname; }",
+            Atoms.castOrDie(String::class.java),
+        )
         val providerPromptVisible = Atoms.script(
             """function(element) {
                 var style = window.getComputedStyle(element);
@@ -308,7 +312,7 @@ class ArchiveBoxJourneyTest {
             "Crawls" to "crawls", "Scheduled Crawls" to "scheduled-crawls",
             "Archive Results" to "archive-results", "Tags" to "server-tags", "AI Agent" to "ai-agent",
             "Users" to "users", "Personas" to "personas", "API Keys" to "api-keys",
-            "Webhooks" to "webhooks", "Processes" to "processes", "Machines" to "machines",
+            "Rules Engine" to "webhooks", "Processes" to "processes", "Machines" to "machines",
             "Network Interfaces" to "network-interfaces", "Binaries" to "binaries",
             "Plugins" to "plugins", "Workers" to "workers", "Logs" to "logs",
         )
@@ -329,7 +333,14 @@ class ArchiveBoxJourneyTest {
                     .check(webMatches(getText(), containsString(PROVIDER_SETUP_TEXT)))
                     .check(webMatches(providerPromptVisible, equalTo("visible")))
             }
+            if (name == "Rules Engine") {
+                onWebView().check(webMatches(currentPath, equalTo("/admin/rules/")))
+            }
             shot(id)
+        }
+        for ((name, path) in listOf("Domains" to "/admin/domains/", "Importers" to "/admin/importers/")) {
+            route(name)
+            onWebView().check(webMatches(currentPath, equalTo(path)))
         }
         click("tab.Settings")
         node("setup.reopen").performScrollTo()

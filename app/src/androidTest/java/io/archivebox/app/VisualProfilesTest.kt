@@ -78,6 +78,16 @@ class VisualProfilesTest {
             compose.onNodeWithTag("navigation.rail").assertIsDisplayed()
             compose.onNodeWithTag("tab.Search").assertIsDisplayed()
             capture("tablet")
+            for (name in listOf("Domains", "Importers", "Rules Engine")) {
+                val route = "route.$name"
+                compose.onNodeWithTag("home").performScrollToNode(hasTestTag(route))
+                compose.onNodeWithTag(route).assertIsEnabled().performClick()
+                compose.waitUntil(30_000) {
+                    compose.onAllNodesWithTag("browser.ready").fetchSemanticsNodes().isNotEmpty()
+                }
+                compose.onAllNodesWithTag("error").assertCountEquals(0)
+                awaitHome()
+            }
         } finally {
             shell("wm density ${density ?: "reset"}")
             shell("wm size ${size ?: "reset"}")

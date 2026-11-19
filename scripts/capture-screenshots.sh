@@ -82,7 +82,7 @@ labels = {
     'users': ('Users', 'Manage accounts on your own server.'),
     'personas': ('Personas', 'Manage server capture identities for logged-in websites.'),
     'api-keys': ('API keys', 'Review access keys in authenticated administration.'),
-    'webhooks': ('Webhooks', 'Configure outbound server notifications.'),
+    'webhooks': ('Rules Engine', 'Manage server rules and automations.'),
     'processes': ('Processes', 'Inspect real server processes and their status.'),
     'machines': ('Machines', 'See machines registered with your ArchiveBox server.'),
     'network-interfaces': ('Network interfaces', 'Inspect server networking.'),
