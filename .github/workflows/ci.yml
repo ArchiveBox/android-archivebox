@@ -171,7 +171,10 @@ jobs:
           emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -no-metrics
           disable-animations: true
           pre-emulator-launch-script: grep -Fx 'target=android-37.0' "$HOME/.android/avd/test.ini"
-          script: bash scripts/capture-screenshots.sh "$RUNNER_TEMP/archivebox-capture" artifacts/screenshots artifacts/apks
+          script: |
+            set -e
+            bash scripts/capture-screenshots.sh "$RUNNER_TEMP/archivebox-capture" artifacts/screenshots artifacts/apks
+            bash scripts/test-cold-recovery.sh "$RUNNER_TEMP/archivebox-capture"
       - uses: actions/upload-artifact@v7
         with:
           name: android-screenshots

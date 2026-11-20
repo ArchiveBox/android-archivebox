@@ -94,4 +94,6 @@ if os.environ.get('GITHUB_ACTIONS') == 'true':
     print('::add-mask::' + token)
 print(f'Real server ready: {base}; {snapshots["count"]} archived pages.')
 PY
+# The emulator runs two recovery phases against this synthetic account.
+printf '%s\n' "$SCREENSHOT_PASSWORD" > "$data/recovery-test-password"
 complete=1
