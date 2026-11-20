@@ -69,6 +69,16 @@ class ArchiveRepository(context: Context) {
         }
     }
 
+    suspend fun replaceRejectedKey(expected: ServerConfiguration, token: String) = withContext(Dispatchers.IO) {
+        writeLock.withLock {
+            val current = readRegistry()
+            check(current.active_server == expected) { "Your connection changed. Sign in to the selected server again." }
+            require(token.isNotBlank()) { "Server did not return an API key." }
+            // Preserve server selection, default destinations, and all unrelated settings.
+            persistRegistry(current.upsert(expected.copy(token = token)))
+        }
+    }
+
     suspend fun selectConnection(id: String) = withContext(Dispatchers.IO) {
         writeLock.withLock {
             val current = readRegistry()

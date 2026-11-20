@@ -63,6 +63,28 @@ fun sameOrigin(a: String, b: String): Boolean = runCatching {
     left.scheme == right.scheme && left.host == right.host && left.port == right.port
 }.getOrDefault(false)
 
+/** Only the token-check endpoint's explicit rejection may start credential recovery. */
+class ApiKeyRejectedException : IllegalArgumentException("This API key is invalid or expired.")
+
+internal fun validateTokenResponse(result: JSONObject) {
+    if (result.opt("success") == false && result.has("user_id") && result.isNull("user_id") &&
+        // Older ArchiveBox servers explicitly return null user_id and omit username.
+        (!result.has("username") || result.isNull("username"))) throw ApiKeyRejectedException()
+    require(result.opt("success") == true && result.opt("user_id") is String && result.getString("user_id").isNotBlank()) {
+        "Server returned an invalid token-check response."
+    }
+}
+
+fun keyRecoveryUrl(server: String): String = normalizeServer(server).trimEnd('/') + "/admin/api/apitoken/"
+
+fun supportsPasswordSignIn(server: String): Boolean = runCatching {
+    val url = normalizeServer(server).toHttpUrl()
+    // Check the spelling before HttpUrl canonicalizes IPv4-mapped IPv6.
+    val address = server.trim().let { if ("://" in it) it else "http://$it" }
+    val literalHost = java.net.URI(address).host?.lowercase()?.removeSurrounding("[", "]")
+    url.isHttps || literalHost in setOf("localhost", "127.0.0.1", "::1")
+}.getOrDefault(false)
+
 class ArchiveApi(timeoutSeconds: Long = 20) {
     private val client = OkHttpClient.Builder()
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
@@ -129,7 +151,7 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
     suspend fun testToken(connection: ServerConfiguration) {
         require(connection.token.isNotBlank()) { "Enter your API key." }
         val result = request(connection.server, "api/v1/auth/check_api_token", body = JSONObject().put("token", connection.token))
-        require(result.optBoolean("success") && !result.isNull("user_id")) { "This API key is invalid or expired." }
+        validateTokenResponse(result)
     }
 
     suspend fun snapshots(connection: ServerConfiguration, query: String = "", offset: Int = 0): List<ArchiveSnapshot> {
@@ -203,6 +225,14 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
         require(receipt.server_id == connection.id && validId(receipt.crawl_id))
         val result = request(connection.server, "api/v1/crawls/crawl/${receipt.crawl_id}", connection.token, method = "DELETE")
         require(result.optBoolean("success") && result.getString("crawl_id") == receipt.crawl_id) { "Server did not confirm removal." }
+    }
+
+    suspend fun signIn(server: String, username: String, password: String): String {
+        require(supportsPasswordSignIn(server)) { "Password sign-in requires HTTPS or a literal loopback address. Use browser Get Key instead." }
+        val result = request(server, "api/v1/auth/get_api_token", body = JSONObject().put("username", username).put("password", password))
+        require(result.opt("success") == true) { "Sign-in failed. Check your administrator credentials, or use browser sign-in." }
+        require(result.opt("token") is String && result.getString("token").isNotBlank()) { "Server did not return a valid API key." }
+        return result.getString("token")
     }
 
     suspend fun browserSession(connection: ServerConfiguration): BrowserSession {

@@ -25,11 +25,22 @@ if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
     # Reject malformed API metadata here before installing or running anything.
     grep -Fx 'target=android-37.0' "$HOME/.android/avd/test.ini"
 fi
-curl --fail --silent --show-error --max-time 10 "$(cat "$server/server-url")/api/v1/openapi.json" > /dev/null
+server_url=$(cat "$server/server-url")
+server_url=${server_url%/}
+if [[ ! "$server_url" =~ ^http://127\.0\.0\.1:([0-9]{1,5})$ ]]; then
+    echo 'Expected a loopback screenshot server URL.' >&2
+    exit 1
+fi
+server_port=$((10#${BASH_REMATCH[1]}))
+if (( server_port < 1 || server_port > 65535 )); then
+    echo 'Invalid screenshot server port.' >&2
+    exit 1
+fi
+curl --fail --silent --show-error --max-time 10 "$server_url/api/v1/openapi.json" > /dev/null
 export BACKEND_REVISION
 BACKEND_REVISION=$(cat "$server/backend-revision")
 adb wait-for-device
-adb reverse tcp:5797 tcp:5797
+adb reverse "tcp:$server_port" "tcp:$server_port"
 adb shell df -h /data
 adb shell cat /proc/meminfo
 main_apk=$(find "$apks" -name '*debug.apk' ! -name '*androidTest*' -print -quit)
@@ -47,7 +58,7 @@ api_token=$(cat "$server/api-token")
 if [[ "${GITHUB_ACTIONS:-}" == true ]]; then printf '::add-mask::%s\n' "$api_token"; fi
 adb shell am instrument -w -r \
     -e class io.archivebox.app.BrowserSessionIntegrationTest,io.archivebox.app.ArchiveBoxJourneyTest,io.archivebox.app.WidgetJourneyTest,io.archivebox.app.VisualProfilesTest \
-    -e serverUrl http://127.0.0.1:5797 \
+    -e serverUrl "$server_url" \
     -e apiToken "$api_token" \
     io.archivebox.app.test/androidx.test.runner.AndroidJUnitRunner | tee artifacts/instrumentation.log
 adb logcat -d > artifacts/logcat.txt
