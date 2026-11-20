@@ -13,9 +13,15 @@ class TokenRecoveryTest {
         } catch (_: ApiKeyRejectedException) { }
     }
 
+    @Test fun legacyExplicitRejectionStartsRecoveryWithoutUsername() {
+        assertThrows(ApiKeyRejectedException::class.java) {
+            validateTokenResponse(JSONObject("""{"success":false,"user_id":null}"""))
+        }
+    }
+
     @Test fun malformedAndAmbiguousResponsesAreNotKeyRejection() {
         for (json in listOf("{}", """{"success":false}""", """{"success":"false","user_id":null,"username":null}""",
-            """{"success":false,"user_id":"123","username":null}""", """{"success":true,"user_id":null}""")) {
+            """{"success":false,"user_id":"123","username":null}""", """{"success":true,"user_id":null}""", """{"success":false,"user_id":null,"username":"tester"}""")) {
             try {
                 validateTokenResponse(JSONObject(json))
                 fail("Expected invalid response: $json")

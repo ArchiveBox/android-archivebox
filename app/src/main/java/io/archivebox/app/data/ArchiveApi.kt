@@ -68,7 +68,8 @@ class ApiKeyRejectedException : IllegalArgumentException("This API key is invali
 
 internal fun validateTokenResponse(result: JSONObject) {
     if (result.opt("success") == false && result.has("user_id") && result.isNull("user_id") &&
-        result.has("username") && result.isNull("username")) throw ApiKeyRejectedException()
+        // Older ArchiveBox servers explicitly return null user_id and omit username.
+        (!result.has("username") || result.isNull("username"))) throw ApiKeyRejectedException()
     require(result.opt("success") == true && result.opt("user_id") is String && result.getString("user_id").isNotBlank()) {
         "Server returned an invalid token-check response."
     }
