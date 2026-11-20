@@ -65,6 +65,10 @@ internal val adminRoutes = listOf(
 internal class NavigationState : ViewModel() {
     val shareRequest = mutableStateOf<IncomingRequest?>(null)
     val connectionRequest = mutableStateOf<IncomingRequest?>(null)
+    var userNavigationVersion = 0
+        private set
+
+    fun noteUserNavigation() { userNavigationVersion++ }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,19 +100,42 @@ internal class NavigationState : ViewModel() {
     var preventShareDismiss by remember { mutableStateOf(false) }
     var routeError by remember { mutableStateOf<String?>(null) }
     var recovery by remember { mutableStateOf<ServerConfiguration?>(null) }
-    recovery?.takeIf { it == connection }?.let { saved ->
-        RecoverySignIn(repository, saved, onDismiss = { recovery = null })
+    var settingsDraftVersion by rememberSaveable { mutableIntStateOf(0) }
+    val latestIncoming by rememberUpdatedState(incoming)
+    fun noteUserNavigation() {
+        navigation.noteUserNavigation()
+        recovery = null
+    }
+    fun navigateTo(destination: String, closeBrowser: Boolean = false) {
+        noteUserNavigation()
+        screen = destination
+        if (closeBrowser) browserPath = null
+    }
+    // Keep the dialog's coroutine alive through the same connection's key
+    // replacement, but never leave it attached to a different server.
+    recovery?.takeIf { it.id == connection?.id && it.server == connection.server }?.let { saved ->
+        RecoverySignIn(repository, saved, onDismiss = { recovery = null }, onRecovered = {
+            if (recovery == saved) {
+                // The fresh Settings draft reads the verified, durably saved key.
+                settingsDraftVersion++
+                recovery = null
+            }
+        })
     }
     LaunchedEffect(connection?.id, connection?.token) {
         val saved = connection ?: return@LaunchedEffect
-        // Explicit incoming actions retain precedence over cold-launch recovery.
-        if (incoming != null || saved.token.isBlank()) return@LaunchedEffect
+        val launchNavigation = navigation.userNavigationVersion
+        // Only offer automatic recovery while the original cold launch still
+        // owns navigation. A restored Settings draft is already owned by the user.
+        if (launchNavigation != 0 || screen != "Archive" || browserPath != null ||
+            latestIncoming != null || saved.token.isBlank()) return@LaunchedEffect
         try {
             repository.api.testToken(saved)
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (_: io.archivebox.app.data.ApiKeyRejectedException) {
-            if (repository.registry.value.active_server != saved) return@LaunchedEffect
+            if (navigation.userNavigationVersion != launchNavigation || latestIncoming != null ||
+                repository.registry.value.active_server != saved) return@LaunchedEffect
             browserPath = null
             screen = "Settings"
             // Clear only the editable draft. Registry credentials remain intact
@@ -122,6 +149,7 @@ internal class NavigationState : ViewModel() {
     }
     LaunchedEffect(incoming?.nonce) {
         incoming ?: return@LaunchedEffect
+        noteUserNavigation()
         repository.dismissSetup()
         when (incoming.action) {
             "add" -> { shareRequest = incoming; screen = "Add" }
@@ -148,37 +176,41 @@ internal class NavigationState : ViewModel() {
         return
     }
     val tabs = listOf("Archive" to Icons.Outlined.Inventory2, "Search" to Icons.Outlined.Search, "Add" to Icons.Outlined.AddCircleOutline, "Activity" to Icons.Outlined.Downloading, "Settings" to Icons.Outlined.Settings)
-    BackHandler(browserPath != null || screen !in listOf("Archive")) { if (browserPath != null) browserPath = null else screen = "Archive" }
+    BackHandler(browserPath != null || screen !in listOf("Archive")) {
+        navigateTo(if (browserPath != null) screen else "Archive", closeBrowser = true)
+    }
     BoxWithConstraints {
         val wide = maxWidth >= 700.dp
         Row(Modifier.fillMaxSize()) {
             if (wide) NavigationRail(Modifier.fillMaxHeight().testTag("navigation.rail"), header = { BrandMark(Modifier.padding(vertical = 24.dp)) }) {
-                tabs.forEach { (name, icon) -> NavigationRailItem(selected = screen == name, onClick = { screen = name; browserPath = null }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) }
+                tabs.forEach { (name, icon) -> NavigationRailItem(selected = screen == name, onClick = { navigateTo(name, closeBrowser = true) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) }
             }
             Scaffold(
                 modifier = Modifier.weight(1f),
                 topBar = {
                     TopAppBar(title = { Text(browserPath?.let { browserTitle } ?: if (screen == "Archive") "ArchiveBox" else if (screen == "Settings") "Connection Settings" else if (screen == "Search") "Search Archive" else if (screen == "Add") "Add URLs" else screen, fontWeight = FontWeight.SemiBold) },
-                        navigationIcon = { if (browserPath != null) IconButton(onClick = { browserPath = null }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back to archive") } else if (!wide) BrandMark(Modifier.padding(start = 16.dp, end = 8.dp)) },
-                        actions = { if (screen == "Archive") IconButton(onClick = { showGuide = true }, modifier = Modifier.testTag("setup.reopen")) { Icon(Icons.Outlined.HelpOutline, "Setup guide") } })
+                        navigationIcon = { if (browserPath != null) IconButton(onClick = { navigateTo(screen, closeBrowser = true) }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back to archive") } else if (!wide) BrandMark(Modifier.padding(start = 16.dp, end = 8.dp)) },
+                        actions = { if (screen == "Archive") IconButton(onClick = { noteUserNavigation(); showGuide = true }, modifier = Modifier.testTag("setup.reopen")) { Icon(Icons.Outlined.HelpOutline, "Setup guide") } })
                 },
                 bottomBar = {
-                    if (!wide) NavigationBar { tabs.forEach { (name, icon) -> NavigationBarItem(selected = screen == name && browserPath == null, onClick = { screen = name; browserPath = null }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) } }
+                    if (!wide) NavigationBar { tabs.forEach { (name, icon) -> NavigationBarItem(selected = screen == name && browserPath == null, onClick = { navigateTo(name, closeBrowser = true) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) } }
                 }
             ) { padding ->
                 Box(Modifier.padding(padding).fillMaxSize()) {
                     val c = connection
                     when {
                         browserPath != null && c != null -> ServerBrowser(repository, c, browserPath!!)
-                        screen == "Settings" -> ConnectionSettings(repository, connectionRequest, onRequestConsumed = { connectionRequest = null }, onGuide = { showGuide = true }, discoverOnOpen = discoverOnOpen, onDiscoveryStarted = { discoverOnOpen = false })
-                        screen == "Add" -> AddScreen(repository, c, "", onConnect = { screen = "Settings" })
+                        screen == "Settings" -> key(settingsDraftVersion) {
+                            ConnectionSettings(repository, connectionRequest, onRequestConsumed = { connectionRequest = null }, onGuide = { showGuide = true }, discoverOnOpen = discoverOnOpen, onDiscoveryStarted = { discoverOnOpen = false })
+                        }
+                        screen == "Add" -> AddScreen(repository, c, "", onConnect = { navigateTo("Settings") })
                         screen == "Search" && c != null -> ServerBrowser(repository, c, archiveSearchPath(searchText, searchMode), onSearchModes = { searchModes = it })
-                        screen == "Search" -> ConnectPrompt { screen = "Settings" }
+                        screen == "Search" -> ConnectPrompt { navigateTo("Settings") }
                         screen == "Activity" && c != null -> ServerBrowser(repository, c, "admin/")
-                        screen == "Activity" -> ConnectPrompt { screen = "Settings" }
+                        screen == "Activity" -> ConnectPrompt { navigateTo("Settings") }
                         else -> HomeScreen(c, registry.servers.filter { it.token.isNotBlank() }, searchText, searchMode, searchModes,
-                            onSwitch = { selected -> scope.launch { try { repository.selectConnection(selected.id) } catch (e: Exception) { routeError = e.message ?: "Couldn't switch servers." } } },
-                            onAdd = { screen = "Add" }, onSearch = { query, mode -> searchText = query; searchMode = mode; screen = "Search" }, onConnect = { screen = "Settings" }, onRoute = { browserTitle = it.name; browserPath = it.path })
+                            onSwitch = { selected -> noteUserNavigation(); scope.launch { try { repository.selectConnection(selected.id) } catch (e: Exception) { routeError = e.message ?: "Couldn't switch servers." } } },
+                            onAdd = { navigateTo("Add") }, onSearch = { query, mode -> searchText = query; searchMode = mode; navigateTo("Search") }, onConnect = { navigateTo("Settings") }, onRoute = { noteUserNavigation(); browserTitle = it.name; browserPath = it.path })
                     }
                 }
             }
@@ -188,7 +220,7 @@ internal class NavigationState : ViewModel() {
         ModalBottomSheet(onDismissRequest = { if (!preventShareDismiss) { shareRequest = null; if (request.externalShare) onFinishShare() } }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { it != SheetValue.Hidden || !preventShareDismiss })) {
             Column(Modifier.fillMaxWidth().fillMaxHeight(.91f).testTag("share.sheet")) {
                 Text("Save to ArchiveBox", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-                AddScreen(repository, registry.default_servers.firstOrNull(), request.text, onConnect = { shareRequest = null; screen = "Settings" }, onDone = { preventShareDismiss = false; shareRequest = null; if (request.externalShare) onFinishShare() }, requestId = request.nonce, onPreventDismiss = { preventShareDismiss = it })
+                AddScreen(repository, registry.default_servers.firstOrNull(), request.text, onConnect = { shareRequest = null; navigateTo("Settings") }, onDone = { preventShareDismiss = false; shareRequest = null; if (request.externalShare) onFinishShare() }, requestId = request.nonce, onPreventDismiss = { preventShareDismiss = it })
             }
         }
     }

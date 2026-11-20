@@ -16,6 +16,7 @@ import org.junit.runner.RunWith
 class ColdRecoveryTest {
     @get:Rule val compose = createEmptyComposeRule()
     private fun await(tag: String) = compose.waitUntil(20_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
+    // Second phase of the recovery driver, after the APK process is force-stopped.
     @Test fun restoredKeyAfterProcessRestart() = runBlocking {
         val repo = ArchiveRepository(InstrumentationRegistry.getInstrumentation().targetContext)
         val restored = requireNotNull(repo.registry.value.active_server)
@@ -31,11 +32,13 @@ class ColdRecoveryTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val args = InstrumentationRegistry.getArguments()
         val repo = ArchiveRepository(instrumentation.targetContext)
-        val saved = ServerConfiguration(name = "Recovery fixture", server = requireNotNull(args.getString("serverUrl")), token = "synthetic-rejected-key")
+        val fixtureUser = requireNotNull(args.getString("recoveryFixtureUser"))
+        val fixturePassword = requireNotNull(args.getString("recoveryFixturePassword"))
+        val saved = ServerConfiguration(name = "Recovery fixture", server = normalizeServer(requireNotNull(args.getString("serverUrl"))), token = "synthetic-rejected-key")
         repo.saveConnection(saved)
         ActivityScenario.launch(MainActivity::class.java).use {
             await("recovery.login")
-            compose.onNodeWithTag("recovery.username").performTextInput("recovery-fixture")
+            compose.onNodeWithTag("recovery.username").performTextInput(fixtureUser)
             compose.onNodeWithTag("recovery.password").performTextInput("wrong-fixture-password")
             compose.onNodeWithTag("recovery.submit").performClick()
             await("recovery.error")
@@ -45,10 +48,13 @@ class ColdRecoveryTest {
         }
         ActivityScenario.launch(MainActivity::class.java).use {
             await("recovery.login")
-            compose.onNodeWithTag("recovery.username").performTextInput("recovery-fixture")
-            compose.onNodeWithTag("recovery.password").performTextInput("synthetic-local-password")
+            compose.onNodeWithTag("recovery.username").performTextInput(fixtureUser)
+            compose.onNodeWithTag("recovery.password").performTextInput(fixturePassword)
             compose.onNodeWithTag("recovery.submit").performClick()
             compose.waitUntil(20_000) { ArchiveRepository(instrumentation.targetContext).registry.value.active_server?.token != saved.token }
+            compose.waitUntil(20_000) { compose.onAllNodesWithTag("recovery.login").fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithTag("connection.test").assertIsEnabled()
+            compose.onNodeWithTag("connection.save").assertIsEnabled()
         }
         val replaced = requireNotNull(ArchiveRepository(instrumentation.targetContext).registry.value.active_server)
         assertEquals(saved.id, replaced.id)

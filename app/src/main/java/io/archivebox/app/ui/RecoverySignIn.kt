@@ -3,11 +3,13 @@ package io.archivebox.app.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.archivebox.app.data.*
@@ -16,7 +18,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /** Passwords stay in memory; the API key never travels through a URL or WebView. */
-@Composable internal fun RecoverySignIn(repository: ArchiveRepository, saved: ServerConfiguration, onDismiss: () -> Unit) {
+@Composable internal fun RecoverySignIn(repository: ArchiveRepository, saved: ServerConfiguration, onDismiss: () -> Unit, onRecovered: () -> Unit) {
     val context = LocalContext.current
     val supportsPassword = supportsPasswordSignIn(saved.server)
     val scope = rememberCoroutineScope()
@@ -34,7 +36,7 @@ import kotlinx.coroutines.launch
             Text(saved.server)
             if (!supportsPassword) Text("Password sign-in requires HTTPS. Use browser Get Key and enter the verified key in Settings instead.")
             OutlinedTextField(username, { username = it }, enabled = !busy && supportsPassword, singleLine = true, label = { Text("Username") }, modifier = Modifier.testTag("recovery.username"))
-            OutlinedTextField(password, { password = it }, enabled = !busy && supportsPassword, singleLine = true, label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.testTag("recovery.password"))
+            OutlinedTextField(password, { password = it }, enabled = !busy && supportsPassword, singleLine = true, label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.testTag("recovery.password"))
             error?.let { Text(it, modifier = Modifier.testTag("recovery.error")) }
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             TextButton(enabled = !busy, onClick = {
@@ -52,7 +54,7 @@ import kotlinx.coroutines.launch
                     repository.api.testToken(saved.copy(token = token))
                     repository.replaceRejectedKey(saved, token)
                     password = ""
-                    onDismiss()
+                    onRecovered()
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (_: Exception) { error = "Sign-in could not be completed. Check your credentials or use browser sign-in. Your saved connection is unchanged." }
                 finally { busy = false }
