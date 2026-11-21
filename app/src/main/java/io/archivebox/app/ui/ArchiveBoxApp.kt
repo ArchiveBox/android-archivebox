@@ -41,9 +41,9 @@ import kotlinx.coroutines.launch
 
 internal data class ServerRoute(val name: String, val path: String, val icon: ImageVector = Icons.Outlined.Folder)
 internal val collectionRoutes = listOf(
-    ServerRoute("Snapshots", "admin/core/snapshot/grid/", Icons.Outlined.CollectionsBookmark),
+    ServerRoute("Snapshots", SNAPSHOT_GRID_PATH, Icons.Outlined.CollectionsBookmark),
     ServerRoute("AI Agent", "admin/agent/", Icons.Outlined.AutoAwesome),
-    ServerRoute("Crawls", "admin/crawls/crawl/", Icons.Outlined.TravelExplore),
+    ServerRoute("Crawl Jobs", "admin/crawls/crawl/", Icons.Outlined.TravelExplore),
     ServerRoute("Scheduled Crawls", "admin/crawls/crawlschedule/", Icons.Outlined.CalendarMonth),
     ServerRoute("Archive Results", "admin/core/archiveresult/", Icons.Outlined.Description),
     ServerRoute("Tags", "admin/core/tag/", Icons.Outlined.Sell),
@@ -85,6 +85,7 @@ internal class NavigationState : ViewModel() {
     var discoverOnOpen by rememberSaveable { mutableStateOf(false) }
     var browserPath by rememberSaveable { mutableStateOf<String?>(null) }
     var browserTitle by rememberSaveable { mutableStateOf("") }
+    var transferMenu by rememberSaveable { mutableStateOf<SnapshotTransferMenu?>(null) }
     var searchText by rememberSaveable { mutableStateOf("") }
     var searchMode by rememberSaveable { mutableStateOf("") }
     var searchModes by remember { mutableStateOf(listOf("meta", "contents", "deep")) }
@@ -94,6 +95,7 @@ internal class NavigationState : ViewModel() {
         if (previousServerId == connection?.id) return@LaunchedEffect
         previousServerId = connection?.id
         browserPath = null
+        transferMenu = null
         searchText = ""
         searchMode = ""
         searchModes = listOf("meta", "contents", "deep")
@@ -113,7 +115,7 @@ internal class NavigationState : ViewModel() {
     fun navigateTo(destination: String, closeBrowser: Boolean = false) {
         noteUserNavigation()
         screen = destination
-        if (closeBrowser) browserPath = null
+        if (closeBrowser) { browserPath = null; transferMenu = null }
     }
     // Keep the dialog's coroutine alive through the same connection's key
     // replacement, but never leave it attached to a different server.
@@ -165,6 +167,7 @@ internal class NavigationState : ViewModel() {
                 else if (incoming.server != null && runCatching { normalizeServer(incoming.server) }.getOrNull() != c.server) {
                     routeError = "This page belongs to a different server. Connect to that server in Settings first."
                 } else if (incoming.snapshot?.let(ArchiveApi::validId) == true) {
+                    transferMenu = null
                     browserPath = "snapshot/${incoming.snapshot}/index.html"; browserTitle = "Archived page"
                 } else routeError = "This archived-page link has no valid snapshot ID."
             }
@@ -234,7 +237,7 @@ internal class NavigationState : ViewModel() {
                 Box(Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize()) {
                     val c = connection
                     when {
-                        browserPath != null && c != null -> ServerBrowser(repository, c, browserPath!!)
+                        browserPath != null && c != null -> ServerBrowser(repository, c, browserPath!!, transferMenu = transferMenu)
                         screen == "Settings" -> key(settingsDraftVersion) {
                             ConnectionSettings(repository, connectionRequest, onRequestConsumed = { connectionRequest = null }, onGuide = { showGuide = true }, discoverOnOpen = discoverOnOpen, onDiscoveryStarted = { discoverOnOpen = false })
                         }
@@ -247,7 +250,13 @@ internal class NavigationState : ViewModel() {
                             phoneHome = phoneHome, progress = progress, listState = menuState, onSwitch = switchServer,
                             onAdd = { navigateTo("Add") }, onSearch = submitSearch,
                             onActivity = { navigateTo("Activity") }, onConnect = { navigateTo("Settings") },
-                            onRoute = { noteUserNavigation(); browserTitle = it.name; browserPath = it.path })
+                            onTransfer = { menu ->
+                                noteUserNavigation()
+                                transferMenu = menu
+                                browserTitle = "Snapshots"
+                                browserPath = SNAPSHOT_GRID_PATH
+                            },
+                            onRoute = { noteUserNavigation(); transferMenu = null; browserTitle = it.name; browserPath = it.path })
                     }
                 }
             }
@@ -275,17 +284,24 @@ internal class NavigationState : ViewModel() {
     searchModes: List<String>, phoneHome: Boolean, progress: HomeProgressState,
     listState: androidx.compose.foundation.lazy.LazyListState,
     onSwitch: (ServerConfiguration) -> Unit, onAdd: () -> Unit, onSearch: (String, String) -> Unit,
-    onActivity: () -> Unit, onConnect: () -> Unit, onRoute: (ServerRoute) -> Unit,
+    onActivity: () -> Unit, onConnect: () -> Unit, onTransfer: (SnapshotTransferMenu) -> Unit, onRoute: (ServerRoute) -> Unit,
 ) {
     val context = LocalContext.current
     LazyColumn(Modifier.fillMaxSize().testTag("home"), state = listState, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (!phoneHome) item {
-            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(28.dp)) {
-                Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("YOUR WEB, PRESERVED.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text("A home for the web\nyou want to keep.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text("Save a link today. Find it here tomorrow.", style = MaterialTheme.typography.bodyLarge)
-                    FilledTonalButton(onClick = onAdd, modifier = Modifier.testTag("home.add")) { Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp)); Text("Save something good") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onAdd, modifier = Modifier.testTag("home.add")) {
+                    Icon(Icons.Outlined.Add, null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add")
+                }
+                OutlinedButton(onClick = { onTransfer(SnapshotTransferMenu.Import) }, enabled = connection != null, modifier = Modifier.testTag("home.import")) {
+                    Text("Import")
+                    Icon(Icons.Outlined.ArrowDropDown, contentDescription = null)
+                }
+                OutlinedButton(onClick = { onTransfer(SnapshotTransferMenu.Export) }, enabled = connection != null, modifier = Modifier.testTag("home.export")) {
+                    Text("Export")
+                    Icon(Icons.Outlined.ArrowDropDown, contentDescription = null)
                 }
             }
         }
@@ -377,10 +393,10 @@ internal fun archiveSearchPath(query: String, mode: String): String = Uri.Builde
 }
 
 private val phoneCollectionRoutes = listOf(
-    collectionRoutes.first { it.name == "Crawls" }.copy(name = "Crawl Jobs"),
+    collectionRoutes.first { it.name == "Crawl Jobs" },
     collectionRoutes.first { it.name == "Snapshots" },
     collectionRoutes.first { it.name == "Tags" },
-) + collectionRoutes.filterNot { it.name in setOf("Crawls", "Snapshots", "Tags") }
+) + collectionRoutes.filterNot { it.name in setOf("Crawl Jobs", "Snapshots", "Tags") }
 
 @Composable private fun ServerSwitcher(
     connection: ServerConfiguration?, servers: List<ServerConfiguration>, onSwitch: (ServerConfiguration) -> Unit,

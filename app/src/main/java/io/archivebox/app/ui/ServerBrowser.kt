@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.SystemClock
 import android.view.ViewGroup
 import android.webkit.*
 import androidx.activity.compose.BackHandler
@@ -24,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import java.net.URI
+import org.json.JSONObject
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String): Boolean {
@@ -37,8 +39,39 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
             Regex("snap-[0-9a-f]{12}\\.${Regex.escape(base)}").matches(target.host))
 }
 
+internal const val SNAPSHOT_GRID_PATH = "admin/core/snapshot/grid/"
+
+internal enum class SnapshotTransferMenu(val menuID: String) {
+    Import("library-import-menu"),
+    Export("snapshot-export-menu");
+
+    // Use the existing server control. No href, status, data attribute, or key
+    // is returned to native code, and opening this menu itself submits no job.
+    fun openScript(destination: String): String = """
+        (() => {
+            if (location.href !== ${JSONObject.quote(destination)}) return false;
+            for (const id of ['$menuID-sidebar', '$menuID-list']) {
+                const menu = document.getElementById(id);
+                const button = document.querySelector('button[type="button"][popovertarget="' + id + '"]');
+                if (!menu || !menu.hasAttribute('popover') || menu.getAttribute('role') !== 'menu' ||
+                    typeof menu.showPopover !== 'function' || !button ||
+                    button.disabled || !button.getClientRects().length) continue;
+                if (!menu.matches(':popover-open')) button.click();
+                return menu.matches(':popover-open');
+            }
+            return false;
+        })();
+    """.trimIndent()
+}
+
 @SuppressLint("SetJavaScriptEnabled")
-@Composable internal fun ServerBrowser(repository: ArchiveRepository, connection: ServerConfiguration, path: String, onSearchModes: ((List<String>) -> Unit)? = null) {
+@Composable internal fun ServerBrowser(
+    repository: ArchiveRepository,
+    connection: ServerConfiguration,
+    path: String,
+    transferMenu: SnapshotTransferMenu? = null,
+    onSearchModes: ((List<String>) -> Unit)? = null,
+) {
     val context = LocalContext.current
     val searchModesCallback by rememberUpdatedState(onSearchModes)
     var browser by remember { mutableStateOf<WebView?>(null) }
@@ -75,7 +108,7 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
             // Keep authenticated pages on the validated cookie host, including split-host deployments.
             val base = URI(authenticated.admin_url.trimEnd('/') + "/")
             val destination = base.resolve(if (path.startsWith("admin/")) path.removePrefix("admin/") else "../$path").toString()
-            key(connection.id, connection.server, connection.token) { AndroidView(
+            key(connection.id, connection.server, connection.token, transferMenu) { AndroidView(
                 modifier = Modifier.weight(1f).fillMaxWidth().testTag(if (ready && error == null) "browser.ready" else "browser.loading"),
                 factory = { ctx ->
                     WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
@@ -97,6 +130,33 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
                         settings.safeBrowsingEnabled = true
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
                         webViewClient = object : WebViewClient() {
+                            private var transferOpened = false
+                            private var pageGeneration = 0
+                            private var transferStartedOn = -1
+                            private fun openTransferMenu(view: WebView, url: String) {
+                                val menu = transferMenu ?: return
+                                if (!ready || transferOpened || transferStartedOn == pageGeneration || path != SNAPSHOT_GRID_PATH ||
+                                    url != destination || url != view.url || !sameOrigin(url, authenticated.admin_url)) return
+                                val generation = pageGeneration
+                                transferStartedOn = generation
+                                val deadline = SystemClock.uptimeMillis() + 4_000
+                                val script = menu.openScript(destination)
+                                fun currentPage() = browser === view && pageGeneration == generation
+                                fun attempt() {
+                                    if (!currentPage() || !ready || view.url != url || SystemClock.uptimeMillis() >= deadline) return
+                                    view.evaluateJavascript(script) { result ->
+                                        if (!currentPage()) return@evaluateJavascript
+                                        if (result == "true") {
+                                            transferOpened = true
+                                        } else {
+                                            view.postDelayed({ attempt() }, 150)
+                                        }
+                                    }
+                                }
+                                // onPageFinished can precede progressive DOM initialization.
+                                // Stop on navigation, release, successful opening, or deadline.
+                                attempt()
+                            }
                             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                                 val url = request.url.toString()
                                 if (allowedArchiveOrigin(url, connection.server, authenticated.admin_url)) return false
@@ -108,9 +168,13 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
                                 }
                                 return true
                             }
-                            override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) { ready = false; error = null; canBack = view.canGoBack() }
+                            override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                                pageGeneration++
+                                ready = false; error = null; canBack = view.canGoBack()
+                            }
                             override fun onPageFinished(view: WebView, url: String) {
                                 ready = error == null; canBack = view.canGoBack()
+                                openTransferMenu(view, url)
                                 if (ready && searchModesCallback != null && sameOrigin(url, authenticated.admin_url)) {
                                     view.evaluateJavascript("Array.from(document.querySelectorAll('select[name=search_mode] option'), option => option.value)") { result ->
                                         val modes = runCatching {
