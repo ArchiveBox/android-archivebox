@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -88,6 +89,7 @@ internal class NavigationState : ViewModel() {
     var searchMode by rememberSaveable { mutableStateOf("") }
     var searchModes by remember { mutableStateOf(listOf("meta", "contents", "deep")) }
     var previousServerId by rememberSaveable { mutableStateOf(connection?.id) }
+    var menuServerId by rememberSaveable { mutableStateOf(connection?.id) }
     LaunchedEffect(connection?.id) {
         if (previousServerId == connection?.id) return@LaunchedEffect
         previousServerId = connection?.id
@@ -183,6 +185,26 @@ internal class NavigationState : ViewModel() {
     }
     BoxWithConstraints {
         val wide = maxWidth >= 700.dp
+        val phoneHome = !wide && screen == "Archive" && browserPath == null
+        val menuState = rememberLazyListState()
+        LaunchedEffect(phoneHome, connection?.id) {
+            if (phoneHome && menuServerId != connection?.id) {
+                menuState.scrollToItem(0)
+                menuServerId = connection?.id
+            }
+        }
+        val savedServers = registry.servers.filter { it.token.isNotBlank() }
+        val progress = rememberHomeProgress(repository, connection, phoneHome)
+        val submitSearch: (String, String) -> Unit = { query, mode ->
+            searchText = query; searchMode = mode; navigateTo("Search")
+        }
+        val switchServer: (ServerConfiguration) -> Unit = { selected ->
+            noteUserNavigation()
+            scope.launch {
+                try { repository.selectConnection(selected.id) }
+                catch (e: Exception) { routeError = e.message ?: "Couldn't switch servers." }
+            }
+        }
         Row(Modifier.fillMaxSize()) {
             if (wide) NavigationRail(Modifier.fillMaxHeight().testTag("navigation.rail"), header = { BrandMark(Modifier.padding(vertical = 24.dp)) }) {
                 tabs.forEach { (name, icon) -> NavigationRailItem(selected = screen == name, onClick = { navigateTo(name, closeBrowser = true) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) }
@@ -191,14 +213,25 @@ internal class NavigationState : ViewModel() {
                 modifier = Modifier.weight(1f),
                 topBar = {
                     TopAppBar(title = { Text(browserPath?.let { browserTitle } ?: if (screen == "Archive") "ArchiveBox" else if (screen == "Settings") "Connection Settings" else if (screen == "Search") "Search Archive" else if (screen == "Add") "Add URLs" else screen, fontWeight = FontWeight.SemiBold) },
-                        navigationIcon = { if (browserPath != null) IconButton(onClick = { navigateTo(screen, closeBrowser = true) }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back to archive") } else if (!wide) BrandMark(Modifier.padding(start = 16.dp, end = 8.dp)) },
-                        actions = { if (screen == "Archive") IconButton(onClick = { noteUserNavigation(); showGuide = true }, modifier = Modifier.testTag("setup.reopen")) { Icon(Icons.Outlined.HelpOutline, "Setup guide") } })
+                        navigationIcon = { if (browserPath != null) IconButton(onClick = { navigateTo(screen, closeBrowser = true) }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back to archive") } else if (phoneHome) IconButton(onClick = { scope.launch { menuState.scrollToItem(0) } }, modifier = Modifier.testTag("tab.Archive")) {
+                            BrandMark()
+                        } else if (!wide) BrandMark(Modifier.padding(start = 16.dp, end = 8.dp)) },
+                        actions = {
+                            if (phoneHome) {
+                                if (savedServers.size > 1) ServerSwitcher(connection, savedServers, switchServer, compact = true)
+                                IconButton(onClick = { navigateTo("Settings") }, modifier = Modifier.testTag("tab.Settings")) {
+                                    Icon(Icons.Outlined.Settings, "Connection Settings")
+                                }
+                            }
+                            if (screen == "Archive") IconButton(onClick = { noteUserNavigation(); showGuide = true }, modifier = Modifier.testTag("setup.reopen")) { Icon(Icons.Outlined.HelpOutline, "Setup guide") }
+                        })
                 },
                 bottomBar = {
-                    if (!wide) NavigationBar { tabs.forEach { (name, icon) -> NavigationBarItem(selected = screen == name && browserPath == null, onClick = { navigateTo(name, closeBrowser = true) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) } }
+                    if (phoneHome) HomeActions(connection, searchText, searchMode, searchModes, submitSearch) { navigateTo("Add") }
+                    else if (!wide) NavigationBar { tabs.forEach { (name, icon) -> NavigationBarItem(selected = screen == name && browserPath == null, onClick = { navigateTo(name, closeBrowser = true) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) } }
                 }
             ) { padding ->
-                Box(Modifier.padding(padding).fillMaxSize()) {
+                Box(Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize()) {
                     val c = connection
                     when {
                         browserPath != null && c != null -> ServerBrowser(repository, c, browserPath!!)
@@ -210,9 +243,11 @@ internal class NavigationState : ViewModel() {
                         screen == "Search" -> ConnectPrompt { navigateTo("Settings") }
                         screen == "Activity" && c != null -> ServerBrowser(repository, c, "admin/")
                         screen == "Activity" -> ConnectPrompt { navigateTo("Settings") }
-                        else -> HomeScreen(c, registry.servers.filter { it.token.isNotBlank() }, searchText, searchMode, searchModes,
-                            onSwitch = { selected -> noteUserNavigation(); scope.launch { try { repository.selectConnection(selected.id) } catch (e: Exception) { routeError = e.message ?: "Couldn't switch servers." } } },
-                            onAdd = { navigateTo("Add") }, onSearch = { query, mode -> searchText = query; searchMode = mode; navigateTo("Search") }, onConnect = { navigateTo("Settings") }, onRoute = { noteUserNavigation(); browserTitle = it.name; browserPath = it.path })
+                        else -> HomeScreen(c, savedServers, searchText, searchMode, searchModes,
+                            phoneHome = phoneHome, progress = progress, listState = menuState, onSwitch = switchServer,
+                            onAdd = { navigateTo("Add") }, onSearch = submitSearch,
+                            onActivity = { navigateTo("Activity") }, onConnect = { navigateTo("Settings") },
+                            onRoute = { noteUserNavigation(); browserTitle = it.name; browserPath = it.path })
                     }
                 }
             }
@@ -235,11 +270,16 @@ internal class NavigationState : ViewModel() {
     }
 }
 
-@Composable private fun HomeScreen(connection: ServerConfiguration?, servers: List<ServerConfiguration>, searchText: String, searchMode: String, searchModes: List<String>, onSwitch: (ServerConfiguration) -> Unit, onAdd: () -> Unit, onSearch: (String, String) -> Unit, onConnect: () -> Unit, onRoute: (ServerRoute) -> Unit) {
+@Composable private fun HomeScreen(
+    connection: ServerConfiguration?, servers: List<ServerConfiguration>, searchText: String, searchMode: String,
+    searchModes: List<String>, phoneHome: Boolean, progress: HomeProgressState,
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    onSwitch: (ServerConfiguration) -> Unit, onAdd: () -> Unit, onSearch: (String, String) -> Unit,
+    onActivity: () -> Unit, onConnect: () -> Unit, onRoute: (ServerRoute) -> Unit,
+) {
     val context = LocalContext.current
-    var switching by remember { mutableStateOf(false) }
-    LazyColumn(Modifier.fillMaxSize().testTag("home"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item {
+    LazyColumn(Modifier.fillMaxSize().testTag("home"), state = listState, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (!phoneHome) item {
             Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(28.dp)) {
                 Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Text("YOUR WEB, PRESERVED.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
@@ -249,27 +289,17 @@ internal class NavigationState : ViewModel() {
                 }
             }
         }
-        item { Surface(onClick = onConnect, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) { ListItem(headlineContent = { Text(if (connection == null) "Connect your server" else "Your ArchiveBox server") }, supportingContent = { Text(connection?.server ?: "Your data. Your devices. Your archive.", maxLines = 1, overflow = TextOverflow.Ellipsis) }, leadingContent = { Icon(if (connection == null) Icons.Outlined.Link else Icons.Outlined.Dns, null) }, trailingContent = { Icon(Icons.Outlined.ChevronRight, null) }) } }
-        if (servers.size > 1) item {
-            Box {
-                OutlinedButton(onClick = { switching = true }, modifier = Modifier.fillMaxWidth().testTag("sidebar.serverSwitcher")) {
-                    Icon(Icons.Outlined.Dns, null)
-                    Text(connection?.server?.let { Uri.parse(it).host } ?: "Choose server", Modifier.weight(1f).padding(horizontal = 10.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Icon(Icons.Outlined.ArrowDropDown, null)
-                }
-                DropdownMenu(expanded = switching, onDismissRequest = { switching = false }) {
-                    servers.forEach { server -> DropdownMenuItem(
-                        text = { Text(server.server) },
-                        leadingIcon = { Icon(if (server.id == connection?.id) Icons.Outlined.CheckCircle else Icons.Outlined.Dns, null) },
-                        onClick = { switching = false; if (server.id != connection?.id) onSwitch(server) },
-                        modifier = Modifier.testTag("sidebar.switchServer.${server.id}")
-                    ) }
-                }
-            }
-        }
-        item { key(connection?.id) { MenuSearchField(searchText, searchMode, searchModes, connection != null, onSearch) } }
+        if (connection == null || !phoneHome) item { Surface(onClick = onConnect, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) { ListItem(headlineContent = { Text(if (connection == null) "Connect your server" else "Your ArchiveBox server") }, supportingContent = { Text(connection?.server ?: "Your data. Your devices. Your archive.", maxLines = 1, overflow = TextOverflow.Ellipsis) }, leadingContent = { Icon(if (connection == null) Icons.Outlined.Link else Icons.Outlined.Dns, null) }, trailingContent = { Icon(Icons.Outlined.ChevronRight, null) }) } }
+        if (!phoneHome && servers.size > 1) item { ServerSwitcher(connection, servers, onSwitch) }
+        if (!phoneHome) item { key(connection?.id) { MenuSearchField(searchText, searchMode, searchModes, connection != null, onSearch) } }
+        if (phoneHome && connection != null) item { HomeProgressStrip(progress) }
         item { SectionTitle("Collection") }
-        items(collectionRoutes) { route -> RouteRow(route, connection != null) { onRoute(route) } }
+        items(if (phoneHome) phoneCollectionRoutes else collectionRoutes) { route ->
+            RouteRow(route, connection != null, tag = if (route.name == "Crawl Jobs") "route.Crawls" else "route.${route.name}") { onRoute(route) }
+        }
+        if (phoneHome) item {
+            RouteRow(ServerRoute("Activity", "admin/", Icons.Outlined.Downloading), true, "tab.Activity", onActivity)
+        }
         item { SectionTitle("Administration") }
         items(adminRoutes) { route -> RouteRow(route, connection != null) { onRoute(route) } }
         item { SectionTitle("Help & community") }
@@ -280,8 +310,8 @@ internal class NavigationState : ViewModel() {
     }
 }
 @Composable internal fun SectionTitle(title: String) { Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)) }
-@Composable private fun RouteRow(route: ServerRoute, enabled: Boolean, onClick: () -> Unit) {
-    Surface(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().testTag("route.${route.name}")) {
+@Composable private fun RouteRow(route: ServerRoute, enabled: Boolean, tag: String = "route.${route.name}", onClick: () -> Unit) {
+    Surface(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().testTag(tag)) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Icon(route.icon, null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
             Text(route.name, Modifier.weight(1f), color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
@@ -310,7 +340,7 @@ internal fun archiveSearchPath(query: String, mode: String): String = Uri.Builde
         if (mode.isNotBlank()) appendQueryParameter("search_mode", mode)
     }.build().toString()
 
-@Composable private fun MenuSearchField(query: String, selectedMode: String, modes: List<String>, enabled: Boolean, onSearch: (String, String) -> Unit) {
+@Composable private fun MenuSearchField(query: String, selectedMode: String, modes: List<String>, enabled: Boolean, onSearch: (String, String) -> Unit, modifier: Modifier = Modifier, rounded: Boolean = false) {
     var text by rememberSaveable(query) { mutableStateOf(query) }
     var mode by rememberSaveable(selectedMode) { mutableStateOf(selectedMode) }
     var showModes by remember { mutableStateOf(false) }
@@ -318,7 +348,8 @@ internal fun archiveSearchPath(query: String, mode: String): String = Uri.Builde
     OutlinedTextField(
         value = text, onValueChange = { text = it }, enabled = enabled,
         placeholder = { Text("Search archive") }, singleLine = true,
-        modifier = Modifier.fillMaxWidth().testTag("sidebar.searchField"),
+        modifier = modifier.fillMaxWidth().testTag("sidebar.searchField"),
+        shape = if (rounded) RoundedCornerShape(24.dp) else OutlinedTextFieldDefaults.shape,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { focus.clearFocus(); onSearch(text.trim(), mode) }),
         leadingIcon = {
@@ -338,4 +369,58 @@ internal fun archiveSearchPath(query: String, mode: String): String = Uri.Builde
             IconButton(onClick = { focus.clearFocus(); onSearch(text.trim(), mode) }, enabled = enabled, modifier = Modifier.testTag("sidebar.searchSubmit")) { Icon(Icons.Outlined.ArrowForward, "Search archive") }
         } }
     )
+}
+
+private val phoneCollectionRoutes = listOf(
+    collectionRoutes.first { it.name == "Crawls" }.copy(name = "Crawl Jobs"),
+    collectionRoutes.first { it.name == "Snapshots" },
+    collectionRoutes.first { it.name == "Tags" },
+) + collectionRoutes.filterNot { it.name in setOf("Crawls", "Snapshots", "Tags") }
+
+@Composable private fun ServerSwitcher(
+    connection: ServerConfiguration?, servers: List<ServerConfiguration>, onSwitch: (ServerConfiguration) -> Unit,
+    compact: Boolean = false,
+) {
+    var switching by remember { mutableStateOf(false) }
+    Box {
+        val label = connection?.server?.let { if (compact) Uri.parse(it).authority else Uri.parse(it).host } ?: "Choose server"
+        if (compact) TextButton(onClick = { switching = true }, modifier = Modifier.widthIn(max = 128.dp).testTag("sidebar.serverSwitcher")) {
+            Text(label, Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(Icons.Outlined.ArrowDropDown, "Switch server")
+        } else OutlinedButton(onClick = { switching = true }, modifier = Modifier.fillMaxWidth().testTag("sidebar.serverSwitcher")) {
+            Icon(Icons.Outlined.Dns, null)
+            Text(label, Modifier.weight(1f).padding(horizontal = 10.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(Icons.Outlined.ArrowDropDown, "Switch server")
+        }
+        DropdownMenu(expanded = switching, onDismissRequest = { switching = false }) {
+            servers.forEach { server -> DropdownMenuItem(
+                text = { Text(server.server) },
+                leadingIcon = { Icon(if (server.id == connection?.id) Icons.Outlined.CheckCircle else Icons.Outlined.Dns, null) },
+                onClick = { switching = false; if (server.id != connection?.id) onSwitch(server) },
+                modifier = Modifier.testTag("sidebar.switchServer.${server.id}")
+            ) }
+        }
+    }
+}
+
+@Composable private fun HomeActions(
+    connection: ServerConfiguration?, query: String, mode: String, modes: List<String>,
+    onSearch: (String, String) -> Unit, onAdd: () -> Unit,
+) {
+    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp) {
+        Row(
+            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+                .padding(horizontal = 16.dp, vertical = 8.dp).testTag("home.actions"),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (connection != null) key(connection.id) {
+                MenuSearchField(query, mode, modes, true, onSearch, Modifier.weight(1f), rounded = true)
+            } else TextButton(onClick = { onSearch("", "") }, modifier = Modifier.weight(1f).testTag("tab.Search")) {
+                Icon(Icons.Outlined.Search, null)
+                Text("Search archive", Modifier.padding(start = 8.dp))
+            }
+            Button(onClick = onAdd, modifier = Modifier.testTag("tab.Add")) { Icon(Icons.Outlined.Add, null); Text("Add") }
+        }
+    }
 }

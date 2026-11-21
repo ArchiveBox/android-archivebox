@@ -25,6 +25,22 @@ data class ServerPersona(val id: String, val name: String)
 data class BrowserSession(val admin_url: String, val cookie: Cookie) {
     data class Cookie(val name: String, val value: String, val expires: Double, val secure: Boolean)
 }
+internal class HomeProgressSessionRejected : IOException("Progress session rejected.")
+internal class HomeProgressScopeDenied : IOException("Progress requires an administrator session.")
+internal class HomeProgressUnavailable : IOException("Progress is not available for this server or account.")
+internal data class HomeProgress(val activeCrawls: Int, val latestCrawl: String?, val snapshots: Long?, val archiveBytes: Long?)
+
+internal fun parseHomeProgress(result: JSONObject): HomeProgress {
+    val active = (result.opt("crawls_active") as? Number)?.toInt()
+    if (active == null || active < 0 || result.has("error")) throw HomeProgressUnavailable()
+    val latest = result.optJSONArray("active_crawls")?.objects().orEmpty()
+        .filter { it.optString("status").equals("started", ignoreCase = true) }
+        .maxByOrNull { it.optString("started") }?.optString("label")?.takeIf { it.isNotBlank() }
+    val collection = result.optJSONObject("collection")
+    fun count(key: String) = (collection?.opt(key) as? Number)?.toLong()?.takeIf { it >= 0 }
+    return HomeProgress(active, latest, count("snapshots"), count("bytes"))
+}
+
 data class DiscoveredServer(val url: String, val label: String)
 
 fun normalizeServer(input: String): String {
@@ -98,11 +114,14 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
         server: String, path: String, token: String? = null,
         body: JSONObject? = null, method: String = if (body == null) "GET" else "POST",
         query: Map<String, String> = emptyMap(),
+        sessionCookie: BrowserSession.Cookie? = null,
+        homeSessionBootstrap: Boolean = false,
     ): JSONObject = withContext(Dispatchers.IO) {
         val url = normalizeServer(server).toHttpUrl().newBuilder().addPathSegments(path)
         query.forEach { (key, value) -> url.addQueryParameter(key, value) }
         val builder = Request.Builder().url(url.build()).header("Accept", "application/json")
         if (token != null) builder.header("Authorization", "Bearer $token")
+        if (sessionCookie != null) builder.header("Cookie", "${sessionCookie.name}=${sessionCookie.value}")
         builder.method(method, body?.toString()?.toRequestBody("application/json".toMediaType()))
         val call = client.newCall(builder.build())
         val data = suspendCancellableCoroutine<String> { continuation ->
@@ -114,6 +133,11 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
                 override fun onResponse(call: Call, response: Response) {
                     response.use {
                         try {
+                            if (homeSessionBootstrap && response.code == 403) throw HomeProgressScopeDenied()
+                            if (sessionCookie != null) when (response.code) {
+                                401, 403 -> throw HomeProgressSessionRejected()
+                                in 300..399, 404 -> throw HomeProgressUnavailable()
+                            }
                             check(response.isSuccessful) {
                                 when (response.code) {
                                     in 300..399 -> "Server redirected the API request. Use its direct API address."
@@ -235,8 +259,24 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
         return result.getString("token")
     }
 
-    suspend fun browserSession(connection: ServerConfiguration): BrowserSession {
-        val result = request(connection.server, "api/v1/auth/browser_session", connection.token, JSONObject())
+    internal suspend fun homeProgress(session: BrowserSession): HomeProgress {
+        // browserSession validates this admin address. Keep its cookie scoped here,
+        // separate from WebView cookies, and never forward it through redirects.
+        val admin = session.admin_url.toHttpUrl()
+        val root = admin.newBuilder().encodedPath(admin.encodedPath.removeSuffix("admin/"))
+            .build().toString()
+        val result = request(root, "progress.json", query = mapOf("collection" to "1"), sessionCookie = session.cookie)
+        return parseHomeProgress(result)
+    }
+
+    suspend fun browserSession(connection: ServerConfiguration): BrowserSession = browserSession(connection, homeSessionBootstrap = false)
+
+    internal suspend fun homeBrowserSession(connection: ServerConfiguration): BrowserSession =
+        browserSession(connection, homeSessionBootstrap = true)
+
+    private suspend fun browserSession(connection: ServerConfiguration, homeSessionBootstrap: Boolean): BrowserSession {
+        val result = request(connection.server, "api/v1/auth/browser_session", connection.token, JSONObject(),
+            homeSessionBootstrap = homeSessionBootstrap)
         val admin = result.getString("admin_url")
         val source = connection.server.toHttpUrl()
         val target = admin.toHttpUrl()

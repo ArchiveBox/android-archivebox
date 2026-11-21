@@ -159,12 +159,17 @@ class ArchiveBoxJourneyTest {
         shot("discovery")
 
         click("tab.Archive")
+        await("home.progress")
+        compose.waitUntil(30_000) { compose.onAllNodesWithText("Connected", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodesWithTag("sidebar.serverSwitcher").assertCountEquals(0)
+        node("home.actions").assertIsDisplayed()
         shot("home")
         route("Snapshots")
         assertTrue("The library must render its real page title", device.wait(Until.hasObject(By.textContains("Snapshots")), 10_000))
+        compose.onAllNodesWithTag("home.progress").assertCountEquals(0)
         shot("library")
         click("tab.Archive")
-        compose.onNodeWithTag("home").performScrollToNode(hasTestTag("sidebar.searchField"))
+        node("sidebar.searchField").assertIsDisplayed()
         fill("sidebar.searchField", "cowpig.github.io")
         click("sidebar.searchMode")
         compose.onNodeWithText("Metadata").performClick()
@@ -302,7 +307,8 @@ class ArchiveBoxJourneyTest {
         // A completed external share may finish its Activity. Relaunch through the launcher.
         instrumentation.targetContext.startActivity(requireNotNull(instrumentation.targetContext.packageManager
             .getLaunchIntentForPackage("io.archivebox.app")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        await("tab.Activity")
+        await("home")
+        node("home").performScrollToNode(hasTestTag("tab.Activity"))
         click("tab.Activity")
         await("browser.ready")
         shot("activity")
