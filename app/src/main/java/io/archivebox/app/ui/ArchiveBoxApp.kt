@@ -294,8 +294,13 @@ internal class NavigationState : ViewModel() {
         if (!phoneHome) item { key(connection?.id) { MenuSearchField(searchText, searchMode, searchModes, connection != null, onSearch) } }
         if (phoneHome && connection != null) item { HomeProgressStrip(progress) }
         item { SectionTitle("Collection") }
-        items(if (phoneHome) phoneCollectionRoutes else collectionRoutes) { route ->
-            RouteRow(route, connection != null, tag = if (route.name == "Crawl Jobs") "route.Crawls" else "route.${route.name}") { onRoute(route) }
+        (if (phoneHome) phoneCollectionRoutes else collectionRoutes).forEach { route ->
+            if (phoneHome && route.name == "Scheduled Crawls") item(key = "collection-divider") {
+                HorizontalDivider(Modifier.testTag("home.collectionDivider"))
+            }
+            item(key = "collection:${route.name}") {
+                RouteRow(route, connection != null, tag = if (route.name == "Crawl Jobs") "route.Crawls" else "route.${route.name}") { onRoute(route) }
+            }
         }
         if (phoneHome) item {
             RouteRow(ServerRoute("Activity", "admin/", Icons.Outlined.Downloading), true, "tab.Activity", onActivity)
@@ -410,17 +415,18 @@ private val phoneCollectionRoutes = listOf(
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp) {
         Row(
             Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
-                .padding(horizontal = 16.dp, vertical = 8.dp).testTag("home.actions"),
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .height(IntrinsicSize.Min).testTag("home.actions"),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (connection != null) key(connection.id) {
                 MenuSearchField(query, mode, modes, true, onSearch, Modifier.weight(1f), rounded = true)
-            } else TextButton(onClick = { onSearch("", "") }, modifier = Modifier.weight(1f).testTag("tab.Search")) {
+            } else TextButton(onClick = { onSearch("", "") }, modifier = Modifier.weight(1f).fillMaxHeight().testTag("tab.Search")) {
                 Icon(Icons.Outlined.Search, null)
                 Text("Search archive", Modifier.padding(start = 8.dp))
             }
-            Button(onClick = onAdd, modifier = Modifier.testTag("tab.Add")) { Icon(Icons.Outlined.Add, null); Text("Add") }
+            Button(onClick = onAdd, modifier = Modifier.fillMaxHeight().testTag("tab.Add")) { Icon(Icons.Outlined.Add, null); Text("Add") }
         }
     }
 }
