@@ -26,6 +26,7 @@ data class BrowserSession(val admin_url: String, val cookie: Cookie) {
     data class Cookie(val name: String, val value: String, val expires: Double, val secure: Boolean)
 }
 internal class HomeProgressSessionRejected : IOException("Progress session rejected.")
+internal class HomeProgressScopeDenied : IOException("Progress requires an administrator session.")
 internal class HomeProgressUnavailable : IOException("Progress is not available for this server or account.")
 internal data class HomeProgress(val activeCrawls: Int, val latestCrawl: String?, val snapshots: Long?, val archiveBytes: Long?)
 
@@ -114,6 +115,7 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
         body: JSONObject? = null, method: String = if (body == null) "GET" else "POST",
         query: Map<String, String> = emptyMap(),
         sessionCookie: BrowserSession.Cookie? = null,
+        homeSessionBootstrap: Boolean = false,
     ): JSONObject = withContext(Dispatchers.IO) {
         val url = normalizeServer(server).toHttpUrl().newBuilder().addPathSegments(path)
         query.forEach { (key, value) -> url.addQueryParameter(key, value) }
@@ -131,6 +133,7 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
                 override fun onResponse(call: Call, response: Response) {
                     response.use {
                         try {
+                            if (homeSessionBootstrap && response.code == 403) throw HomeProgressScopeDenied()
                             if (sessionCookie != null) when (response.code) {
                                 401 -> throw HomeProgressSessionRejected()
                                 in 300..399, 403, 404 -> throw HomeProgressUnavailable()
@@ -266,8 +269,14 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
         return parseHomeProgress(result)
     }
 
-    suspend fun browserSession(connection: ServerConfiguration): BrowserSession {
-        val result = request(connection.server, "api/v1/auth/browser_session", connection.token, JSONObject())
+    suspend fun browserSession(connection: ServerConfiguration): BrowserSession = browserSession(connection, homeSessionBootstrap = false)
+
+    internal suspend fun homeBrowserSession(connection: ServerConfiguration): BrowserSession =
+        browserSession(connection, homeSessionBootstrap = true)
+
+    private suspend fun browserSession(connection: ServerConfiguration, homeSessionBootstrap: Boolean): BrowserSession {
+        val result = request(connection.server, "api/v1/auth/browser_session", connection.token, JSONObject(),
+            homeSessionBootstrap = homeSessionBootstrap)
         val admin = result.getString("admin_url")
         val source = connection.server.toHttpUrl()
         val target = admin.toHttpUrl()

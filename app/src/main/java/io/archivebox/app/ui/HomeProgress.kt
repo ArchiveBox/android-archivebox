@@ -19,6 +19,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import io.archivebox.app.data.ArchiveRepository
 import io.archivebox.app.data.BrowserSession
 import io.archivebox.app.data.HomeProgress
+import io.archivebox.app.data.HomeProgressScopeDenied
 import io.archivebox.app.data.HomeProgressSessionRejected
 import io.archivebox.app.data.HomeProgressUnavailable
 import io.archivebox.app.data.ServerConfiguration
@@ -45,13 +46,18 @@ internal data class HomeProgressState(
             while (true) {
                 try {
                     val current = session?.takeIf { it.cookie.expires > System.currentTimeMillis() / 1000.0 + 15 }
-                        ?: repository.api.browserSession(connection).also { session = it }
+                        ?: repository.api.homeBrowserSession(connection).also { session = it }
                     val started = SystemClock.elapsedRealtime()
                     val data = repository.api.homeProgress(current)
                     val now = SystemClock.elapsedRealtime()
                     state = HomeProgressState(data, now, now - started)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
+                } catch (_: HomeProgressScopeDenied) {
+                    // The endpoint was reached but this saved key cannot mint an admin session.
+                    // Stop this visible polling run; reopening Home can retry after a role change.
+                    state = state.copy(offline = false, unavailable = true, latencyMs = null)
+                    break
                 } catch (_: HomeProgressSessionRejected) {
                     session = null
                     state = state.copy(offline = false, unavailable = true, latencyMs = null)
