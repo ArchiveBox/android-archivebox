@@ -40,15 +40,20 @@ internal data class HomeProgressState(
     val owner = LocalLifecycleOwner.current
     var state by remember(connection) { mutableStateOf(HomeProgressState()) }
     var session by remember(connection) { mutableStateOf<BrowserSession?>(null) }
+    var sessionProven by remember(connection) { mutableStateOf(false) }
     LaunchedEffect(repository, connection, owner, visible) {
         if (!visible || connection == null || connection.token.isBlank()) return@LaunchedEffect
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
                 try {
                     val current = session?.takeIf { it.cookie.expires > System.currentTimeMillis() / 1000.0 + 15 }
-                        ?: repository.api.homeBrowserSession(connection).also { session = it }
+                        ?: run {
+                            sessionProven = false
+                            repository.api.homeBrowserSession(connection).also { session = it }
+                        }
                     val started = SystemClock.elapsedRealtime()
                     val data = repository.api.homeProgress(current)
+                    sessionProven = true
                     val now = SystemClock.elapsedRealtime()
                     state = HomeProgressState(data, now, now - started)
                 } catch (cancelled: CancellationException) {
@@ -59,8 +64,15 @@ internal data class HomeProgressState(
                     state = state.copy(offline = false, unavailable = true, latencyMs = null)
                     break
                 } catch (_: HomeProgressSessionRejected) {
+                    // Core also returns 403 for a missing Django session. Refresh once if the
+                    // rejected cookie worked before; a newly minted refused cookie must not loop.
+                    val renew = sessionProven
                     session = null
+                    sessionProven = false
                     state = state.copy(offline = false, unavailable = true, latencyMs = null)
+                    if (!renew) break
+                    delay(5_000)
+                    continue
                 } catch (_: HomeProgressUnavailable) {
                     state = state.copy(offline = false, unavailable = true, latencyMs = null)
                 } catch (_: Exception) {

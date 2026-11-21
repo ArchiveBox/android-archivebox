@@ -89,6 +89,7 @@ internal class NavigationState : ViewModel() {
     var searchMode by rememberSaveable { mutableStateOf("") }
     var searchModes by remember { mutableStateOf(listOf("meta", "contents", "deep")) }
     var previousServerId by rememberSaveable { mutableStateOf(connection?.id) }
+    var menuServerId by rememberSaveable { mutableStateOf(connection?.id) }
     LaunchedEffect(connection?.id) {
         if (previousServerId == connection?.id) return@LaunchedEffect
         previousServerId = connection?.id
@@ -186,8 +187,11 @@ internal class NavigationState : ViewModel() {
         val wide = maxWidth >= 700.dp
         val phoneHome = !wide && screen == "Archive" && browserPath == null
         val menuState = rememberLazyListState()
-        LaunchedEffect(connection?.id) {
-            if (phoneHome) menuState.scrollToItem(0)
+        LaunchedEffect(phoneHome, connection?.id) {
+            if (phoneHome && menuServerId != connection?.id) {
+                menuState.scrollToItem(0)
+                menuServerId = connection?.id
+            }
         }
         val savedServers = registry.servers.filter { it.token.isNotBlank() }
         val progress = rememberHomeProgress(repository, connection, phoneHome)

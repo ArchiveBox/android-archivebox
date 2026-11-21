@@ -135,8 +135,8 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
                         try {
                             if (homeSessionBootstrap && response.code == 403) throw HomeProgressScopeDenied()
                             if (sessionCookie != null) when (response.code) {
-                                401 -> throw HomeProgressSessionRejected()
-                                in 300..399, 403, 404 -> throw HomeProgressUnavailable()
+                                401, 403 -> throw HomeProgressSessionRejected()
+                                in 300..399, 404 -> throw HomeProgressUnavailable()
                             }
                             check(response.isSuccessful) {
                                 when (response.code) {

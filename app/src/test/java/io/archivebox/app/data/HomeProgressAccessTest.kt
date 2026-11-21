@@ -37,4 +37,42 @@ class HomeProgressAccessTest {
         val offline = runCatching { api.homeBrowserSession(connection) }.exceptionOrNull()
         assertTrue(offline is IOException && offline !is HomeProgressScopeDenied)
     }
+
+    @Test fun cookieDenialCanRecoverWithoutFollowingRedirects() = runBlocking {
+        val codes = AtomicInteger(401)
+        val redirects = AtomicInteger()
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/progress.json") { exchange ->
+            exchange.use {
+                assertEquals("sessionid=fixture", exchange.requestHeaders.getFirst("Cookie"))
+                assertNull(exchange.requestHeaders.getFirst("Authorization"))
+                if (codes.get() == 302) exchange.responseHeaders.set("Location", "/login/")
+                exchange.sendResponseHeaders(codes.get(), -1)
+            }
+        }
+        server.createContext("/login/") { exchange ->
+            exchange.use {
+                redirects.incrementAndGet()
+                exchange.sendResponseHeaders(200, -1)
+            }
+        }
+        server.start()
+        val session = BrowserSession("http://127.0.0.1:${server.address.port}/admin/",
+            BrowserSession.Cookie("sessionid", "fixture", 2_000_000_000.0, false))
+        val api = ArchiveApi(timeoutSeconds = 2)
+        try {
+            for (code in listOf(401, 403)) {
+                codes.set(code)
+                assertTrue(runCatching { api.homeProgress(session) }.exceptionOrNull() is HomeProgressSessionRejected)
+            }
+            for (code in listOf(302, 404)) {
+                codes.set(code)
+                assertTrue(runCatching { api.homeProgress(session) }.exceptionOrNull() is HomeProgressUnavailable)
+            }
+            assertEquals(0, redirects.get())
+        } finally {
+            server.stop(0)
+        }
+    }
+
 }
