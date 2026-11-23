@@ -70,10 +70,10 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
     connection: ServerConfiguration,
     path: String,
     transferMenu: SnapshotTransferMenu? = null,
-    onSearchModes: ((List<String>) -> Unit)? = null,
+    onSearchQuery: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val searchModesCallback by rememberUpdatedState(onSearchModes)
+    val searchQueryCallback by rememberUpdatedState(onSearchQuery)
     var browser by remember { mutableStateOf<WebView?>(null) }
     var session by remember(connection) { mutableStateOf<BrowserSession?>(null) }
     // These cells must outlive route changes: the WebView client retains their references.
@@ -130,6 +130,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                         settings.safeBrowsingEnabled = true
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
                         webViewClient = object : WebViewClient() {
+                            private var fallbackPage: String? = null
                             private var transferOpened = false
                             private var pageGeneration = 0
                             private var transferStartedOn = -1
@@ -173,20 +174,34 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                                 ready = false; error = null; canBack = view.canGoBack()
                             }
                             override fun onPageFinished(view: WebView, url: String) {
+                                if (url == fallbackPage) {
+                                    // The unavailable editor was the entry page. Back must not reopen its 404.
+                                    view.clearHistory()
+                                    fallbackPage = null
+                                }
                                 ready = error == null; canBack = view.canGoBack()
                                 openTransferMenu(view, url)
-                                if (ready && searchModesCallback != null && sameOrigin(url, authenticated.admin_url)) {
-                                    view.evaluateJavascript("Array.from(document.querySelectorAll('select[name=search_mode] option'), option => option.value)") { result ->
-                                        val modes = runCatching {
-                                            val values = org.json.JSONArray(result)
-                                            (0 until values.length()).map { values.getString(it) }.filter { it.isNotBlank() }.distinct()
-                                        }.getOrDefault(emptyList())
-                                        if (modes.isNotEmpty()) searchModesCallback?.invoke(modes)
-                                    }
+                                val page = url.toHttpUrlOrNull()
+                                val resultsPath = URI(authenticated.admin_url.trimEnd('/') + "/").resolve("core/snapshot/").path
+                                if (ready && page?.encodedPath == resultsPath && sameOrigin(url, authenticated.admin_url)) {
+                                    searchQueryCallback?.invoke(page.queryParameter("q").orEmpty())
                                 }
                             }
                             override fun onReceivedError(view: WebView, request: WebResourceRequest, failure: WebResourceError) { if (request.isForMainFrame) { ready = false; error = "Couldn't load this page. ${failure.description}" } }
-                            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) { if (request.isForMainFrame) { ready = false; error = "Server returned HTTP ${response.statusCode}." } }
+                            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                                if (!request.isForMainFrame) return
+                                val editor = base.resolve("../$SEARCH_EDITOR_PATH")
+                                if (response.statusCode == 404 && request.url.path == editor.path &&
+                                    sameOrigin(request.url.toString(), authenticated.admin_url)) {
+                                    // Older servers still expose their own supported Snapshot search.
+                                    val fallback = archiveSearchPath(request.url.getQueryParameter("q").orEmpty())
+                                    val url = base.resolve(fallback.removePrefix("admin/")).toString()
+                                    fallbackPage = url
+                                    view.post { view.loadUrl(url) }
+                                    return
+                                }
+                                ready = false; error = "Server returned HTTP ${response.statusCode}."
+                            }
                             // The default SSL handler cancels certificate errors; never bypass certificate validation.
                         }
                         tag = destination

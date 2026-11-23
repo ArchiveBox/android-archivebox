@@ -19,7 +19,6 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-data class ArchiveSnapshot(val id: String, val title: String, val url: String, val tags: List<String>)
 data class SubmissionReceipt(val server_id: String, val crawl_id: String, val queued_urls: List<String>)
 data class ServerPersona(val id: String, val name: String)
 data class BrowserSession(val admin_url: String, val cookie: Cookie) {
@@ -176,15 +175,6 @@ class ArchiveApi(timeoutSeconds: Long = 20) {
         require(connection.token.isNotBlank()) { "Enter your API key." }
         val result = request(connection.server, "api/v1/auth/check_api_token", body = JSONObject().put("token", connection.token))
         validateTokenResponse(result)
-    }
-
-    suspend fun snapshots(connection: ServerConfiguration, query: String = "", offset: Int = 0): List<ArchiveSnapshot> {
-        require(offset >= 0)
-        val result = request(connection.server, "api/v1/core/snapshots", connection.token,
-            query = mapOf("search" to query, "search_mode" to "meta", "limit" to "50", "offset" to offset.toString()))
-        return result.getJSONArray("items").objects().map {
-            ArchiveSnapshot(it.getString("id"), it.optString("title").takeUnless { value -> value == "null" }.orEmpty(), it.getString("url"), it.optJSONArray("tags")?.strings().orEmpty())
-        }
     }
 
     suspend fun tagSuggestions(connection: ServerConfiguration, query: String): List<String> {
