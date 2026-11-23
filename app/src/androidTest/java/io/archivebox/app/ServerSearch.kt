@@ -35,6 +35,7 @@ internal fun enterServerSearch(query: String) {
     val offset = IntArray(2)
     onView(isAssignableFrom(WebView::class.java)).check { view, _ -> view.getLocationOnScreen(offset) }
     device.click(offset[0] + point.getDouble(0).roundToInt(), offset[1] + point.getDouble(1).roundToInt())
+    device.waitForIdle()
     instrumentation.runOnMainSync {
         instrumentation.targetContext.getSystemService(ClipboardManager::class.java)
             .setPrimaryClip(ClipData.newPlainText("Search", query))
