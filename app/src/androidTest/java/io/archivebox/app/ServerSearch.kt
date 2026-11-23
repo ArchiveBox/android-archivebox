@@ -10,7 +10,6 @@ import androidx.test.espresso.web.assertion.WebViewAssertions.webMatches
 import androidx.test.espresso.web.model.Atoms
 import androidx.test.espresso.web.sugar.Web.onWebView
 import androidx.test.espresso.web.webdriver.DriverAtoms.findElement
-import androidx.test.espresso.web.webdriver.DriverAtoms.webClick
 import androidx.test.espresso.web.webdriver.Locator
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
@@ -48,6 +47,6 @@ internal fun enterServerSearch(query: String) {
 }
 
 internal fun submitServerSearch() {
-    onWebView().withElement(findElement(Locator.CSS_SELECTOR, "form[role=search] :is(button,input)[type=submit]"))
-        .perform(webClick())
+    // The focused editor submits on Enter; the admin submit button is visually hidden.
+    UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressKeyCode(KeyEvent.KEYCODE_ENTER)
 }
