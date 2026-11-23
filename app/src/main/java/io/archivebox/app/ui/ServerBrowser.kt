@@ -70,10 +70,10 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
     connection: ServerConfiguration,
     path: String,
     transferMenu: SnapshotTransferMenu? = null,
-    onSearchQuery: ((String) -> Unit)? = null,
+    onSearchPage: ((String, String?) -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val searchQueryCallback by rememberUpdatedState(onSearchQuery)
+    val searchPageCallback by rememberUpdatedState(onSearchPage)
     var browser by remember { mutableStateOf<WebView?>(null) }
     var session by remember(connection) { mutableStateOf<BrowserSession?>(null) }
     // These cells must outlive route changes: the WebView client retains their references.
@@ -174,6 +174,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                                 ready = false; error = null; canBack = view.canGoBack()
                             }
                             override fun onPageFinished(view: WebView, url: String) {
+                                if (fallbackPage != null && URI(url).path == base.resolve("../$SEARCH_EDITOR_PATH").path) return
                                 if (url == fallbackPage) {
                                     // The unavailable editor was the entry page. Back must not reopen its 404.
                                     view.clearHistory()
@@ -181,11 +182,26 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                                 }
                                 ready = error == null; canBack = view.canGoBack()
                                 openTransferMenu(view, url)
-                                val page = url.toHttpUrlOrNull()
-                                val resultsPath = URI(authenticated.admin_url.trimEnd('/') + "/").resolve("core/snapshot/").path
-                                if (ready && page?.encodedPath == resultsPath && sameOrigin(url, authenticated.admin_url)) {
-                                    searchQueryCallback?.invoke(page.queryParameter("q").orEmpty())
+                                if (ready) rememberSearchPage(view, url)
+                            }
+                            override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+                                // The results stream can replace its query URL without loading another document.
+                                if (ready) rememberSearchPage(view, url)
+                            }
+                            private fun rememberSearchPage(view: WebView, url: String) {
+                                val record = searchPageCallback ?: return
+                                if (view !== browser || url != view.url || !sameOrigin(url, authenticated.admin_url)) return
+                                val page = url.toHttpUrlOrNull() ?: return
+                                val results = page.encodedPath == base.resolve("core/snapshot/").path
+                                val route = when {
+                                    results -> "admin/core/snapshot/"
+                                    page.encodedPath == base.resolve("../$SEARCH_EDITOR_PATH").path -> SEARCH_EDITOR_PATH
+                                    else -> return
                                 }
+                                // Remember the URL for rotation. Mark this navigation as already loaded
+                                // so Compose's update block does not restart an active result stream.
+                                view.tag = url
+                                record(route + (page.encodedQuery?.let { "?$it" } ?: ""), if (results) page.queryParameter("q").orEmpty() else null)
                             }
                             override fun onReceivedError(view: WebView, request: WebResourceRequest, failure: WebResourceError) { if (request.isForMainFrame) { ready = false; error = "Couldn't load this page. ${failure.description}" } }
                             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
@@ -196,6 +212,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                                     // Older servers still expose their own supported Snapshot search.
                                     val fallback = archiveSearchPath(request.url.getQueryParameter("q").orEmpty())
                                     val url = base.resolve(fallback.removePrefix("admin/")).toString()
+                                    ready = false
                                     fallbackPage = url
                                     view.post { view.loadUrl(url) }
                                     return

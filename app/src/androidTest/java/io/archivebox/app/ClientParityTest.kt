@@ -53,6 +53,11 @@ class ClientParityTest {
         }
         click("setup.skip")
         fill("connection.hints", first)
+        // An already-granted LAN permission starts discovery on entry. Wait for
+        // its sweep to finish so this second sweep actually receives the typed hint.
+        compose.waitUntil(30_000) {
+            compose.onAllNodes(hasTestTag("connection.discover") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+        }
         click("connection.discover", scroll = true)
         val device = UiDevice.getInstance(instrumentation)
         device.wait(Until.findObject(By.res("com.android.permissioncontroller", "permission_allow_button")), 5_000)?.click()

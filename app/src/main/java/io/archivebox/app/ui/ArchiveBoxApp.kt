@@ -82,8 +82,8 @@ internal class NavigationState : ViewModel() {
     var browserPath by rememberSaveable { mutableStateOf<String?>(null) }
     var browserTitle by rememberSaveable { mutableStateOf("") }
     var transferMenu by rememberSaveable { mutableStateOf<SnapshotTransferMenu?>(null) }
-    var searchText by rememberSaveable { mutableStateOf("") }
-    var searchPath by rememberSaveable { mutableStateOf(searchEditorPath("")) }
+    var searchText by rememberSaveable(connection?.id) { mutableStateOf("") }
+    var searchPath by rememberSaveable(connection?.id) { mutableStateOf(searchEditorPath("")) }
     var previousServerId by rememberSaveable { mutableStateOf(connection?.id) }
     var menuServerId by rememberSaveable { mutableStateOf(connection?.id) }
     LaunchedEffect(connection?.id) {
@@ -91,8 +91,6 @@ internal class NavigationState : ViewModel() {
         previousServerId = connection?.id
         browserPath = null
         transferMenu = null
-        searchText = ""
-        searchPath = searchEditorPath("")
     }
     val navigation: NavigationState = viewModel()
     var shareRequest by navigation.shareRequest
@@ -240,7 +238,10 @@ internal class NavigationState : ViewModel() {
                             ConnectionSettings(repository, connectionRequest, onRequestConsumed = { connectionRequest = null }, onGuide = { showGuide = true }, discoverOnOpen = discoverOnOpen, onDiscoveryStarted = { discoverOnOpen = false })
                         }
                         screen == "Add" -> AddScreen(repository, c, "", onConnect = { navigateTo("Settings") })
-                        screen == "Search" && c != null -> ServerBrowser(repository, c, searchPath, onSearchQuery = { searchText = it })
+                        screen == "Search" && c != null -> ServerBrowser(repository, c, searchPath, onSearchPage = { path, query ->
+                            searchPath = path
+                            if (query != null) searchText = query
+                        })
                         screen == "Search" -> ConnectPrompt { navigateTo("Settings") }
                         screen == "Activity" && c != null -> ServerBrowser(repository, c, "admin/")
                         screen == "Activity" -> ConnectPrompt { navigateTo("Settings") }
