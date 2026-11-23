@@ -84,6 +84,7 @@ internal class NavigationState : ViewModel() {
     var transferMenu by rememberSaveable { mutableStateOf<SnapshotTransferMenu?>(null) }
     var focusViewSearch by remember(connection?.id) { mutableStateOf<((Boolean) -> Unit)?>(null) }
     var searchText by rememberSaveable(connection?.id) { mutableStateOf("") }
+    var activityPath by rememberSaveable(connection?.id) { mutableStateOf("admin/") }
     var searchPath by rememberSaveable(connection?.id) { mutableStateOf(searchEditorPath("")) }
     var previousServerId by rememberSaveable { mutableStateOf(connection?.id) }
     var menuServerId by rememberSaveable { mutableStateOf(connection?.id) }
@@ -109,6 +110,7 @@ internal class NavigationState : ViewModel() {
     fun navigateTo(destination: String, closeBrowser: Boolean = false) {
         noteUserNavigation()
         if (destination == "Search") searchPath = searchEditorPath(searchText)
+        if (destination == "Activity") activityPath = "admin/"
         screen = destination
         if (closeBrowser) { browserPath = null; transferMenu = null }
     }
@@ -262,7 +264,8 @@ internal class NavigationState : ViewModel() {
                             if (query != null) searchText = query
                         })
                         screen == "Search" -> ConnectPrompt { navigateTo("Settings") }
-                        screen == "Activity" && c != null -> ServerBrowser(repository, c, "admin/", focusSearch = focusViewSearch)
+                        screen == "Activity" && c != null -> ServerBrowser(repository, c, activityPath,
+                            focusSearch = focusViewSearch, onSearchPage = { path, _ -> activityPath = path })
                         screen == "Activity" -> ConnectPrompt { navigateTo("Settings") }
                         else -> HomeScreen(c, savedServers,
                             phoneHome = phoneHome, progress = progress, listState = menuState, onSwitch = switchServer,

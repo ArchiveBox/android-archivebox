@@ -3,8 +3,18 @@ package io.archivebox.app.data
 import org.junit.Assert.*
 import org.junit.Test
 import io.archivebox.app.ui.allowedArchiveOrigin
+import io.archivebox.app.ui.searchRoute
+import java.net.URI
 
 class AddressTest {
+    @Test fun filteredSearchRoutesPreserveAnEncodedProxyPrefix() {
+        val base = URI("https://archive.example/Plant%20Archive/admin/")
+        assertEquals("admin/core/snapshot/grid/", searchRoute(base, "/Plant%20Archive/admin/core/snapshot/grid/"))
+        assertEquals("admin/core/snapshot/", searchRoute(base, "/Plant%20Archive/admin/core/snapshot/"))
+        assertEquals("public/search-field/", searchRoute(base, "/Plant%20Archive/public/search-field/"))
+        assertNull(searchRoute(base, "/other/admin/core/snapshot/"))
+    }
+
     @Test fun bareDeviceUsesArchiveBoxPortAndExplicitUrlsRetainTheirPorts() {
         assertEquals("http://archivebox.local:5797/", normalizeServer("archivebox.local"))
         assertEquals("http://100.65.2.3:5797/", normalizeServer("100.65.2.3"))

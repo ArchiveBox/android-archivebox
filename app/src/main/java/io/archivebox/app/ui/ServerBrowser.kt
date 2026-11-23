@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.archivebox.app.data.*
 import io.archivebox.app.BuildConfig
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -41,6 +42,15 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
 }
 
 internal const val SNAPSHOT_GRID_PATH = "admin/core/snapshot/grid/"
+
+// OkHttp and Android expose encoded paths; compare the reverse proxy's prefix
+// in the same representation so spaces and reserved delimiters survive rotation.
+internal fun searchRoute(base: URI, encodedPath: String?): String? = when (encodedPath) {
+    base.resolve("core/snapshot/").rawPath -> "admin/core/snapshot/"
+    base.resolve("core/snapshot/grid/").rawPath -> SNAPSHOT_GRID_PATH
+    base.resolve("../$SEARCH_EDITOR_PATH").rawPath -> SEARCH_EDITOR_PATH
+    else -> null
+}
 
 internal enum class SnapshotTransferMenu(val menuID: String) {
     Import("library-import-menu"),
@@ -126,17 +136,27 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                         return document.activeElement === field;
                     }
                 }
-                return false;
+                // Some library pages (such as Domains) load their table and its
+                // search form together after the top-level document finishes.
+                return document.readyState !== 'complete' || document.querySelector('[aria-busy="true"]') ? null : false;
             })();
         """.trimIndent()
         view.requestFocus()
-        val focused = suspendCancellableCoroutine { continuation ->
-            view.evaluateJavascript(focusEditor) { result ->
-                if (continuation.isActive) continuation.resume(result == "true")
+        val deadline = SystemClock.uptimeMillis() + 4_000
+        var result: String
+        do {
+            result = suspendCancellableCoroutine { continuation ->
+                view.evaluateJavascript(focusEditor) { value ->
+                    if (continuation.isActive) continuation.resume(value)
+                }
             }
-        }
-        if (focused) context.getSystemService(InputMethodManager::class.java).showSoftInput(view, 0)
-        complete(focused)
+            if (result != "null" || SystemClock.uptimeMillis() >= deadline) break
+            delay(120)
+        } while (true)
+        if (result == "true") context.getSystemService(InputMethodManager::class.java).showSoftInput(view, 0)
+        // A stalled library table still owns its search. Only a confirmed
+        // absence may move the user to the whole-archive editor.
+        complete(result != "false")
     }
     BackHandler(canBack) { browser?.goBack() }
     DisposableEffect(connection) {
@@ -216,7 +236,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                                 ready = false; error = null; canBack = view.canGoBack()
                             }
                             override fun onPageFinished(view: WebView, url: String) {
-                                if (fallbackPage != null && URI(url).path == base.resolve("../$SEARCH_EDITOR_PATH").path) return
+                                if (fallbackPage != null && searchRoute(base, url.toHttpUrlOrNull()?.encodedPath) == SEARCH_EDITOR_PATH) return
                                 if (url == fallbackPage) {
                                     // The unavailable editor was the entry page. Back must not reopen its 404.
                                     view.clearHistory()
@@ -234,12 +254,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                                 val record = searchPageCallback ?: return
                                 if (view !== browser || url != view.url || !sameOrigin(url, authenticated.admin_url)) return
                                 val page = url.toHttpUrlOrNull() ?: return
-                                val route = when (page.encodedPath) {
-                                    base.resolve("core/snapshot/").path -> "admin/core/snapshot/"
-                                    base.resolve("core/snapshot/grid/").path -> SNAPSHOT_GRID_PATH
-                                    base.resolve("../$SEARCH_EDITOR_PATH").path -> SEARCH_EDITOR_PATH
-                                    else -> return
-                                }
+                                val route = searchRoute(base, page.encodedPath) ?: return
                                 // Remember the URL for rotation. Mark this navigation as already loaded
                                 // so Compose's update block does not restart an active result stream.
                                 view.tag = url
@@ -248,8 +263,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                             override fun onReceivedError(view: WebView, request: WebResourceRequest, failure: WebResourceError) { if (request.isForMainFrame) { ready = false; error = "Couldn't load this page. ${failure.description}" } }
                             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
                                 if (!request.isForMainFrame) return
-                                val editor = base.resolve("../$SEARCH_EDITOR_PATH")
-                                if (response.statusCode == 404 && request.url.path == editor.path &&
+                                if (response.statusCode == 404 && searchRoute(base, request.url.encodedPath) == SEARCH_EDITOR_PATH &&
                                     sameOrigin(request.url.toString(), authenticated.admin_url)) {
                                     // Older servers still expose their own supported Snapshot search.
                                     val fallback = archiveSearchPath(request.url.getQueryParameter("q").orEmpty())

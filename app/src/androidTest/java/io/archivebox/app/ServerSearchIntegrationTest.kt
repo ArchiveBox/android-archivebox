@@ -52,6 +52,17 @@ class ServerSearchIntegrationTest {
         await("browser.ready")
     }
 
+    private val currentUrl = Atoms.script("return location.href;", Atoms.castOrDie(String::class.java))
+
+    private fun waitForSubmittedQuery(query: String): Uri {
+        // The admin updates history when streamed results arrive; the document
+        // remains ready throughout, so wait for the actual submitted URL.
+        compose.waitUntil(30_000) {
+            Uri.parse(onWebView().perform(currentUrl).get()).getQueryParameter("q") == query
+        }
+        return Uri.parse(onWebView().perform(currentUrl).get())
+    }
+
     @Test fun submitAndReopenQuotedQuery() {
         connect()
         compose.onNodeWithTag("tab.Search").performClick()
@@ -60,11 +71,10 @@ class ServerSearchIntegrationTest {
         enterServerSearch(query)
         submitServerSearch()
         await("browser.ready")
-        val result = Atoms.script("return new URL(location.href).searchParams.get('q');", Atoms.castOrDie(String::class.java))
-        onWebView().check(webMatches(result, equalTo(query)))
+        val submitted = waitForSubmittedQuery(query)
         // A recreated Activity must restore results, including the encoded expression.
         recreateActivity()
-        onWebView().check(webMatches(result, equalTo(query)))
+        onWebView().check(webMatches(currentUrl, equalTo(submitted.toString())))
         compose.onNodeWithTag("tab.Archive").performClick()
         compose.onNodeWithTag("sidebar.searchField").performClick()
         await("browser.ready")
@@ -81,7 +91,6 @@ class ServerSearchIntegrationTest {
         onWebView().withElement(findElement(Locator.CSS_SELECTOR, "a[href*='tags__id__exact=']"))
             .perform(webClick())
         await("browser.ready")
-        val currentUrl = Atoms.script("return location.href;", Atoms.castOrDie(String::class.java))
         val filtered = Uri.parse(onWebView().perform(currentUrl).get())
         val tag = filtered.getQueryParameter("tags__id__exact")
         assertNotNull("The tag count link must open a tag-filtered Snapshot view", tag)
@@ -92,17 +101,12 @@ class ServerSearchIntegrationTest {
         val fieldFocused = Atoms.script(
             "return document.activeElement.matches('[role=search] [role=combobox], [role=search] input[name=q]');",
             Atoms.castOrDie(Boolean::class.javaObjectType))
-        onWebView().check(webMatches(fieldFocused, equalTo(true)))
+        compose.waitUntil(30_000) { onWebView().perform(fieldFocused).get() }
         onWebView().check(webMatches(currentUrl, equalTo(filtered.toString())))
         enterServerSearch("https")
         submitServerSearch()
         await("browser.ready")
-        // The admin updates history when streamed results arrive; its document
-        // remains ready throughout, so wait for the actual submitted URL here.
-        compose.waitUntil(30_000) {
-            Uri.parse(onWebView().perform(currentUrl).get()).getQueryParameter("q") == "https"
-        }
-        val submitted = Uri.parse(onWebView().perform(currentUrl).get())
+        val submitted = waitForSubmittedQuery("https")
         assertEquals(filtered.path, submitted.path)
         assertEquals(tag, submitted.getQueryParameter("tags__id__exact"))
         assertEquals("https", submitted.getQueryParameter("q"))
