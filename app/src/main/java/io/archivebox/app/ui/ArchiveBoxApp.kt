@@ -82,6 +82,7 @@ internal class NavigationState : ViewModel() {
     var browserPath by rememberSaveable { mutableStateOf<String?>(null) }
     var browserTitle by rememberSaveable { mutableStateOf("") }
     var transferMenu by rememberSaveable { mutableStateOf<SnapshotTransferMenu?>(null) }
+    var focusViewSearch by remember(connection?.id) { mutableStateOf<((Boolean) -> Unit)?>(null) }
     var searchText by rememberSaveable(connection?.id) { mutableStateOf("") }
     var searchPath by rememberSaveable(connection?.id) { mutableStateOf(searchEditorPath("")) }
     var previousServerId by rememberSaveable { mutableStateOf(connection?.id) }
@@ -101,6 +102,7 @@ internal class NavigationState : ViewModel() {
     var settingsDraftVersion by rememberSaveable { mutableIntStateOf(0) }
     val latestIncoming by rememberUpdatedState(incoming)
     fun noteUserNavigation() {
+        focusViewSearch = null
         navigation.noteUserNavigation()
         recovery = null
     }
@@ -196,7 +198,23 @@ internal class NavigationState : ViewModel() {
         }
         val savedServers = registry.servers.filter { it.token.isNotBlank() }
         val progress = rememberHomeProgress(repository, connection, phoneHome)
-        val openSearch = { navigateTo("Search", closeBrowser = true) }
+        fun selectTab(destination: String) {
+            if (destination != "Search" || connection == null ||
+                (browserPath == null && screen !in listOf("Search", "Activity"))) {
+                navigateTo(destination, closeBrowser = true)
+                return
+            }
+            noteUserNavigation()
+            val revision = navigation.userNavigationVersion
+            // A late WebView response must not change tabs after the user has moved on.
+            focusViewSearch = { found ->
+                if (navigation.userNavigationVersion == revision) {
+                    focusViewSearch = null
+                    if (!found) navigateTo("Search", closeBrowser = true)
+                }
+            }
+        }
+        val openSearch = { selectTab("Search") }
         val switchServer: (ServerConfiguration) -> Unit = { selected ->
             noteUserNavigation()
             scope.launch {
@@ -206,7 +224,7 @@ internal class NavigationState : ViewModel() {
         }
         Row(Modifier.fillMaxSize()) {
             if (wide) NavigationRail(Modifier.fillMaxHeight().testTag("navigation.rail"), header = { BrandMark(Modifier.padding(vertical = 24.dp)) }) {
-                tabs.forEach { (name, icon) -> NavigationRailItem(selected = screen == name, onClick = { navigateTo(name, closeBrowser = true) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) }
+                tabs.forEach { (name, icon) -> NavigationRailItem(selected = screen == name, onClick = { selectTab(name) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) }
             }
             Scaffold(
                 modifier = Modifier.weight(1f),
@@ -227,23 +245,24 @@ internal class NavigationState : ViewModel() {
                 },
                 bottomBar = {
                     if (phoneHome) HomeActions(openSearch) { navigateTo("Add") }
-                    else if (!wide) NavigationBar { tabs.forEach { (name, icon) -> NavigationBarItem(selected = screen == name && browserPath == null, onClick = { navigateTo(name, closeBrowser = true) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) } }
+                    else if (!wide) NavigationBar { tabs.forEach { (name, icon) -> NavigationBarItem(selected = screen == name && browserPath == null, onClick = { selectTab(name) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) } }
                 }
             ) { padding ->
                 Box(Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize()) {
                     val c = connection
                     when {
-                        browserPath != null && c != null -> ServerBrowser(repository, c, browserPath!!, transferMenu = transferMenu)
+                        browserPath != null && c != null -> ServerBrowser(repository, c, browserPath!!, transferMenu = transferMenu,
+                            focusSearch = focusViewSearch, onSearchPage = { path, _ -> browserPath = path })
                         screen == "Settings" -> key(settingsDraftVersion) {
                             ConnectionSettings(repository, connectionRequest, onRequestConsumed = { connectionRequest = null }, onGuide = { showGuide = true }, discoverOnOpen = discoverOnOpen, onDiscoveryStarted = { discoverOnOpen = false })
                         }
                         screen == "Add" -> AddScreen(repository, c, "", onConnect = { navigateTo("Settings") })
-                        screen == "Search" && c != null -> ServerBrowser(repository, c, searchPath, onSearchPage = { path, query ->
+                        screen == "Search" && c != null -> ServerBrowser(repository, c, searchPath, focusSearch = focusViewSearch, onSearchPage = { path, query ->
                             searchPath = path
                             if (query != null) searchText = query
                         })
                         screen == "Search" -> ConnectPrompt { navigateTo("Settings") }
-                        screen == "Activity" && c != null -> ServerBrowser(repository, c, "admin/")
+                        screen == "Activity" && c != null -> ServerBrowser(repository, c, "admin/", focusSearch = focusViewSearch)
                         screen == "Activity" -> ConnectPrompt { navigateTo("Settings") }
                         else -> HomeScreen(c, savedServers,
                             phoneHome = phoneHome, progress = progress, listState = menuState, onSwitch = switchServer,

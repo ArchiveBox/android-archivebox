@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.SystemClock
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -71,6 +72,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
     path: String,
     transferMenu: SnapshotTransferMenu? = null,
     onSearchPage: ((String, String?) -> Unit)? = null,
+    focusSearch: ((Boolean) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val searchPageCallback by rememberUpdatedState(onSearchPage)
@@ -95,6 +97,46 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
             }
             session = value
         } catch (e: Exception) { error = e.message ?: "Couldn't open your server's browser session." }
+    }
+    LaunchedEffect(focusSearch, ready, error, session, browser) {
+        val complete = focusSearch ?: return@LaunchedEffect
+        if (!ready && error == null) return@LaunchedEffect
+        val view = browser
+        val admin = session?.admin_url
+        if (error != null || view == null || admin == null || !sameOrigin(view.url.orEmpty(), admin)) {
+            complete(false)
+            return@LaunchedEffect
+        }
+        // Keep the server's form in place: it owns the active folder, tags, domain,
+        // filters and sort. The client never has to reconstruct a search scope.
+        val focusEditor = """
+            (() => {
+                if (location.origin !== new URL(${JSONObject.quote(admin)}).origin) return false;
+                const selectors = [
+                    '[role="search"] [role="combobox"][contenteditable="true"]',
+                    '[role="search"] input[name="q"]',
+                    '#content-main input[type="search"]'
+                ];
+                for (const selector of selectors) {
+                    const field = [...document.querySelectorAll(selector)].find(el =>
+                        !el.disabled && el.getClientRects().length && getComputedStyle(el).visibility === 'visible');
+                    if (field) {
+                        field.focus();
+                        field.scrollIntoView({block:'nearest'});
+                        return document.activeElement === field;
+                    }
+                }
+                return false;
+            })();
+        """.trimIndent()
+        view.requestFocus()
+        val focused = suspendCancellableCoroutine { continuation ->
+            view.evaluateJavascript(focusEditor) { result ->
+                if (continuation.isActive) continuation.resume(result == "true")
+            }
+        }
+        if (focused) context.getSystemService(InputMethodManager::class.java).showSoftInput(view, 0)
+        complete(focused)
     }
     BackHandler(canBack) { browser?.goBack() }
     DisposableEffect(connection) {
@@ -192,16 +234,16 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                                 val record = searchPageCallback ?: return
                                 if (view !== browser || url != view.url || !sameOrigin(url, authenticated.admin_url)) return
                                 val page = url.toHttpUrlOrNull() ?: return
-                                val results = page.encodedPath == base.resolve("core/snapshot/").path
-                                val route = when {
-                                    results -> "admin/core/snapshot/"
-                                    page.encodedPath == base.resolve("../$SEARCH_EDITOR_PATH").path -> SEARCH_EDITOR_PATH
+                                val route = when (page.encodedPath) {
+                                    base.resolve("core/snapshot/").path -> "admin/core/snapshot/"
+                                    base.resolve("core/snapshot/grid/").path -> SNAPSHOT_GRID_PATH
+                                    base.resolve("../$SEARCH_EDITOR_PATH").path -> SEARCH_EDITOR_PATH
                                     else -> return
                                 }
                                 // Remember the URL for rotation. Mark this navigation as already loaded
                                 // so Compose's update block does not restart an active result stream.
                                 view.tag = url
-                                record(route + (page.encodedQuery?.let { "?$it" } ?: ""), if (results) page.queryParameter("q").orEmpty() else null)
+                                record(route + (page.encodedQuery?.let { "?$it" } ?: ""), if (route == SEARCH_EDITOR_PATH) null else page.queryParameter("q").orEmpty())
                             }
                             override fun onReceivedError(view: WebView, request: WebResourceRequest, failure: WebResourceError) { if (request.isForMainFrame) { ready = false; error = "Couldn't load this page. ${failure.description}" } }
                             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
