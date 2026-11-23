@@ -1,0 +1,29 @@
+app/src/androidTest/java/io/archivebox/app/ServerSearch.kt
+  s_8ac48be581cb69::t_863e5887984ffe 1-35
+app/src/main/java/io/archivebox/app/ui/ServerBrowser.kt
+  s_8ac48be581cb69::t_f208b221a89571 73,76,133,177-181,184-187,191-204
+README.md
+  s_8ac48be581cb69::t_4f5e1cec016d23 54
+app/src/androidTest/java/io/archivebox/app/ArchiveBoxJourneyTest.kt
+  s_8ac48be581cb69::t_4f354be8a98359 172-175
+app/src/androidTest/java/io/archivebox/app/ClientParityTest.kt
+  s_8ac48be581cb69::t_d58a6a842ebe43 79-81,83-85,90-91
+app/src/main/java/io/archivebox/app/ui/ArchiveBoxApp.kt
+  s_8ac48be581cb69::t_1a1497844c2ec3 86,95,111,157-162,201,231,243,247,249,281,283,307,354,356-368,404,414
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ef8b90244e4af2e860e1d08a40485a76b92ff24b",
+  "prompts": {},
+  "sessions": {
+    "s_8ac48be581cb69": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a204b9-8dec-7393-a435-49d6a7ac7391",
+        "model": "gpt-6.2-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
