@@ -3,10 +3,6 @@ package io.archivebox.app.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -86,9 +82,10 @@ internal class NavigationState : ViewModel() {
     var browserPath by rememberSaveable { mutableStateOf<String?>(null) }
     var browserTitle by rememberSaveable { mutableStateOf("") }
     var transferMenu by rememberSaveable { mutableStateOf<SnapshotTransferMenu?>(null) }
-    var searchText by rememberSaveable { mutableStateOf("") }
-    var searchMode by rememberSaveable { mutableStateOf("") }
-    var searchModes by remember { mutableStateOf(listOf("meta", "contents", "deep")) }
+    var focusViewSearch by remember(connection?.id) { mutableStateOf<((Boolean) -> Unit)?>(null) }
+    var searchText by rememberSaveable(connection?.id) { mutableStateOf("") }
+    var activityPath by rememberSaveable(connection?.id) { mutableStateOf("admin/") }
+    var searchPath by rememberSaveable(connection?.id) { mutableStateOf(searchEditorPath("")) }
     var previousServerId by rememberSaveable { mutableStateOf(connection?.id) }
     var menuServerId by rememberSaveable { mutableStateOf(connection?.id) }
     LaunchedEffect(connection?.id) {
@@ -96,9 +93,6 @@ internal class NavigationState : ViewModel() {
         previousServerId = connection?.id
         browserPath = null
         transferMenu = null
-        searchText = ""
-        searchMode = ""
-        searchModes = listOf("meta", "contents", "deep")
     }
     val navigation: NavigationState = viewModel()
     var shareRequest by navigation.shareRequest
@@ -109,11 +103,14 @@ internal class NavigationState : ViewModel() {
     var settingsDraftVersion by rememberSaveable { mutableIntStateOf(0) }
     val latestIncoming by rememberUpdatedState(incoming)
     fun noteUserNavigation() {
+        focusViewSearch = null
         navigation.noteUserNavigation()
         recovery = null
     }
     fun navigateTo(destination: String, closeBrowser: Boolean = false) {
         noteUserNavigation()
+        if (destination == "Search") searchPath = searchEditorPath(searchText)
+        if (destination == "Activity") activityPath = "admin/"
         screen = destination
         if (closeBrowser) { browserPath = null; transferMenu = null }
     }
@@ -159,7 +156,12 @@ internal class NavigationState : ViewModel() {
         repository.dismissSetup()
         when (incoming.action) {
             "add" -> { shareRequest = incoming; screen = "Add" }
-            "search" -> { searchText = incoming.text; searchMode = ""; screen = "Search" }
+            "search" -> {
+                searchText = incoming.text
+                searchPath = if (searchText.isBlank()) searchEditorPath("") else archiveSearchPath(searchText)
+                browserPath = null
+                screen = "Search"
+            }
             "connect" -> { connectionRequest = incoming; screen = "Settings" }
             "snapshot" -> {
                 val c = connection
@@ -198,9 +200,23 @@ internal class NavigationState : ViewModel() {
         }
         val savedServers = registry.servers.filter { it.token.isNotBlank() }
         val progress = rememberHomeProgress(repository, connection, phoneHome)
-        val submitSearch: (String, String) -> Unit = { query, mode ->
-            searchText = query; searchMode = mode; navigateTo("Search")
+        fun selectTab(destination: String) {
+            if (destination != "Search" || connection == null ||
+                (browserPath == null && screen !in listOf("Search", "Activity"))) {
+                navigateTo(destination, closeBrowser = true)
+                return
+            }
+            noteUserNavigation()
+            val revision = navigation.userNavigationVersion
+            // A late WebView response must not change tabs after the user has moved on.
+            focusViewSearch = { found ->
+                if (navigation.userNavigationVersion == revision) {
+                    focusViewSearch = null
+                    if (!found) navigateTo("Search", closeBrowser = true)
+                }
+            }
         }
+        val openSearch = { selectTab("Search") }
         val switchServer: (ServerConfiguration) -> Unit = { selected ->
             noteUserNavigation()
             scope.launch {
@@ -210,7 +226,7 @@ internal class NavigationState : ViewModel() {
         }
         Row(Modifier.fillMaxSize()) {
             if (wide) NavigationRail(Modifier.fillMaxHeight().testTag("navigation.rail"), header = { BrandMark(Modifier.padding(vertical = 24.dp)) }) {
-                tabs.forEach { (name, icon) -> NavigationRailItem(selected = screen == name, onClick = { navigateTo(name, closeBrowser = true) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) }
+                tabs.forEach { (name, icon) -> NavigationRailItem(selected = screen == name, onClick = { selectTab(name) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) }
             }
             Scaffold(
                 modifier = Modifier.weight(1f),
@@ -230,25 +246,30 @@ internal class NavigationState : ViewModel() {
                         })
                 },
                 bottomBar = {
-                    if (phoneHome) HomeActions(connection, searchText, searchMode, searchModes, submitSearch) { navigateTo("Add") }
-                    else if (!wide) NavigationBar { tabs.forEach { (name, icon) -> NavigationBarItem(selected = screen == name && browserPath == null, onClick = { navigateTo(name, closeBrowser = true) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) } }
+                    if (phoneHome) HomeActions(openSearch) { navigateTo("Add") }
+                    else if (!wide) NavigationBar { tabs.forEach { (name, icon) -> NavigationBarItem(selected = screen == name && browserPath == null, onClick = { selectTab(name) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) } }
                 }
             ) { padding ->
                 Box(Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize()) {
                     val c = connection
                     when {
-                        browserPath != null && c != null -> ServerBrowser(repository, c, browserPath!!, transferMenu = transferMenu)
+                        browserPath != null && c != null -> ServerBrowser(repository, c, browserPath!!, transferMenu = transferMenu,
+                            focusSearch = focusViewSearch, onSearchPage = { path, _ -> browserPath = path })
                         screen == "Settings" -> key(settingsDraftVersion) {
                             ConnectionSettings(repository, connectionRequest, onRequestConsumed = { connectionRequest = null }, onGuide = { showGuide = true }, discoverOnOpen = discoverOnOpen, onDiscoveryStarted = { discoverOnOpen = false })
                         }
                         screen == "Add" -> AddScreen(repository, c, "", onConnect = { navigateTo("Settings") })
-                        screen == "Search" && c != null -> ServerBrowser(repository, c, archiveSearchPath(searchText, searchMode), onSearchModes = { searchModes = it })
+                        screen == "Search" && c != null -> ServerBrowser(repository, c, searchPath, focusSearch = focusViewSearch, onSearchPage = { path, query ->
+                            searchPath = path
+                            if (query != null) searchText = query
+                        })
                         screen == "Search" -> ConnectPrompt { navigateTo("Settings") }
-                        screen == "Activity" && c != null -> ServerBrowser(repository, c, "admin/")
+                        screen == "Activity" && c != null -> ServerBrowser(repository, c, activityPath,
+                            focusSearch = focusViewSearch, onSearchPage = { path, _ -> activityPath = path })
                         screen == "Activity" -> ConnectPrompt { navigateTo("Settings") }
-                        else -> HomeScreen(c, savedServers, searchText, searchMode, searchModes,
+                        else -> HomeScreen(c, savedServers,
                             phoneHome = phoneHome, progress = progress, listState = menuState, onSwitch = switchServer,
-                            onAdd = { navigateTo("Add") }, onSearch = submitSearch,
+                            onAdd = { navigateTo("Add") }, onSearch = openSearch,
                             onActivity = { navigateTo("Activity") }, onConnect = { navigateTo("Settings") },
                             onTransfer = { menu ->
                                 noteUserNavigation()
@@ -280,10 +301,9 @@ internal class NavigationState : ViewModel() {
 }
 
 @Composable private fun HomeScreen(
-    connection: ServerConfiguration?, servers: List<ServerConfiguration>, searchText: String, searchMode: String,
-    searchModes: List<String>, phoneHome: Boolean, progress: HomeProgressState,
+    connection: ServerConfiguration?, servers: List<ServerConfiguration>, phoneHome: Boolean, progress: HomeProgressState,
     listState: androidx.compose.foundation.lazy.LazyListState,
-    onSwitch: (ServerConfiguration) -> Unit, onAdd: () -> Unit, onSearch: (String, String) -> Unit,
+    onSwitch: (ServerConfiguration) -> Unit, onAdd: () -> Unit, onSearch: () -> Unit,
     onActivity: () -> Unit, onConnect: () -> Unit, onTransfer: (SnapshotTransferMenu) -> Unit, onRoute: (ServerRoute) -> Unit,
 ) {
     val context = LocalContext.current
@@ -307,7 +327,7 @@ internal class NavigationState : ViewModel() {
         }
         if (connection == null || !phoneHome) item { Surface(onClick = onConnect, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) { ListItem(headlineContent = { Text(if (connection == null) "Connect your server" else "Your ArchiveBox server") }, supportingContent = { Text(connection?.server ?: "Your data. Your devices. Your archive.", maxLines = 1, overflow = TextOverflow.Ellipsis) }, leadingContent = { Icon(if (connection == null) Icons.Outlined.Link else Icons.Outlined.Dns, null) }, trailingContent = { Icon(Icons.Outlined.ChevronRight, null) }) } }
         if (!phoneHome && servers.size > 1) item { ServerSwitcher(connection, servers, onSwitch) }
-        if (!phoneHome) item { key(connection?.id) { MenuSearchField(searchText, searchMode, searchModes, connection != null, onSearch) } }
+        if (!phoneHome) item { SearchEntry(onSearch, Modifier.fillMaxWidth()) }
         if (phoneHome && connection != null) item { HomeProgressStrip(progress) }
         item { SectionTitle("Collection") }
         (if (phoneHome) phoneCollectionRoutes else collectionRoutes).forEach { route ->
@@ -354,42 +374,21 @@ internal class NavigationState : ViewModel() {
     }
 }
 
-internal fun archiveSearchPath(query: String, mode: String): String = Uri.Builder()
-    .path("admin/core/snapshot/")
-    .apply {
-        if (query.isNotBlank()) appendQueryParameter("q", query.trim())
-        if (mode.isNotBlank()) appendQueryParameter("search_mode", mode)
-    }.build().toString()
+internal const val SEARCH_EDITOR_PATH = "public/search-field/"
 
-@Composable private fun MenuSearchField(query: String, selectedMode: String, modes: List<String>, enabled: Boolean, onSearch: (String, String) -> Unit, modifier: Modifier = Modifier, rounded: Boolean = false) {
-    var text by rememberSaveable(query) { mutableStateOf(query) }
-    var mode by rememberSaveable(selectedMode) { mutableStateOf(selectedMode) }
-    var showModes by remember { mutableStateOf(false) }
-    val focus = LocalFocusManager.current
-    OutlinedTextField(
-        value = text, onValueChange = { text = it }, enabled = enabled,
-        placeholder = { Text("Search archive") }, singleLine = true,
-        modifier = modifier.fillMaxWidth().testTag("sidebar.searchField"),
-        shape = if (rounded) RoundedCornerShape(24.dp) else OutlinedTextFieldDefaults.shape,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { focus.clearFocus(); onSearch(text.trim(), mode) }),
-        leadingIcon = {
-            Box {
-                IconButton(onClick = { showModes = true }, enabled = enabled, modifier = Modifier.testTag("sidebar.searchMode")) { Icon(Icons.Outlined.Search, "Search mode") }
-                DropdownMenu(expanded = showModes, onDismissRequest = { showModes = false }) {
-                    (listOf("") + modes).distinct().forEach { value ->
-                        DropdownMenuItem(text = { Text(when (value) { "" -> "Server default"; "meta" -> "Metadata"; "contents" -> "Full text"; else -> value }) },
-                            leadingIcon = { if (mode == value) Icon(Icons.Outlined.Check, null) },
-                            onClick = { mode = value; showModes = false })
-                    }
-                }
-            }
-        },
-        trailingIcon = { Row {
-            if (text.isNotEmpty()) IconButton(onClick = { text = "" }) { Icon(Icons.Outlined.Close, "Clear search") }
-            IconButton(onClick = { focus.clearFocus(); onSearch(text.trim(), mode) }, enabled = enabled, modifier = Modifier.testTag("sidebar.searchSubmit")) { Icon(Icons.Outlined.ArrowForward, "Search archive") }
-        } }
-    )
+internal fun searchEditorPath(query: String): String = Uri.Builder().path(SEARCH_EDITOR_PATH)
+    .appendQueryParameter("target", "admin")
+    .apply { if (query.isNotBlank()) appendQueryParameter("q", query) }.build().toString()
+
+internal fun archiveSearchPath(query: String): String = Uri.Builder().path("admin/core/snapshot/")
+    .apply { if (query.isNotBlank()) appendQueryParameter("q", query) }.build().toString()
+
+@Composable private fun SearchEntry(onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    // Give the server editor the full screen for a keyboard, nested expressions and its suggestion list.
+    OutlinedButton(onClick = onOpen, modifier = modifier.testTag("sidebar.searchField")) {
+        Icon(Icons.Outlined.Search, contentDescription = null)
+        Text("Search archive", Modifier.padding(start = 8.dp))
+    }
 }
 
 private val phoneCollectionRoutes = listOf(
@@ -425,8 +424,7 @@ private val phoneCollectionRoutes = listOf(
 }
 
 @Composable private fun HomeActions(
-    connection: ServerConfiguration?, query: String, mode: String, modes: List<String>,
-    onSearch: (String, String) -> Unit, onAdd: () -> Unit,
+    onSearch: () -> Unit, onAdd: () -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 3.dp) {
         Row(
@@ -436,12 +434,7 @@ private val phoneCollectionRoutes = listOf(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (connection != null) key(connection.id) {
-                MenuSearchField(query, mode, modes, true, onSearch, Modifier.weight(1f), rounded = true)
-            } else TextButton(onClick = { onSearch("", "") }, modifier = Modifier.weight(1f).fillMaxHeight().testTag("tab.Search")) {
-                Icon(Icons.Outlined.Search, null)
-                Text("Search archive", Modifier.padding(start = 8.dp))
-            }
+            SearchEntry(onSearch, Modifier.weight(1f))
             Button(onClick = onAdd, modifier = Modifier.fillMaxHeight().testTag("tab.Add")) { Icon(Icons.Outlined.Add, null); Text("Add") }
         }
     }

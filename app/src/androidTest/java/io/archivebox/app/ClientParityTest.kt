@@ -53,6 +53,11 @@ class ClientParityTest {
         }
         click("setup.skip")
         fill("connection.hints", first)
+        // An already-granted LAN permission starts discovery on entry. Wait for
+        // its sweep to finish so this second sweep actually receives the typed hint.
+        compose.waitUntil(30_000) {
+            compose.onAllNodes(hasTestTag("connection.discover") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+        }
         click("connection.discover", scroll = true)
         val device = UiDevice.getInstance(instrumentation)
         device.wait(Until.findObject(By.res("com.android.permissioncontroller", "permission_allow_button")), 5_000)?.click()
@@ -76,20 +81,19 @@ class ClientParityTest {
         click("sidebar.serverSwitcher"); click("sidebar.switchServer.${firstSaved.id}")
         compose.waitUntil(10_000) { ArchiveRepository(context).registry.value.active_server_id == firstSaved.id }
         assertEquals(registry.default_server_ids, ArchiveRepository(context).registry.value.default_server_ids)
-        node("sidebar.searchField").assertIsDisplayed()
-        fill("sidebar.searchField", "a & b/日本語")
-        click("sidebar.searchMode"); compose.onNodeWithText("Metadata").performClick()
+        click("sidebar.searchField"); await("browser.ready")
+        val query = "title:\"a & b/日本語\""
+        enterServerSearch(query)
         shot("menu-search")
-        click("sidebar.searchSubmit"); await("browser.ready")
-        val expression = Atoms.script("return new URL(location.href).searchParams.get('q') + '|' + new URL(location.href).searchParams.get('search_mode');", Atoms.castOrDie(String::class.java))
-        onWebView().check(webMatches(expression, equalTo("a & b/日本語|meta")))
+        submitServerSearch(); await("browser.ready")
+        val expression = Atoms.script("return new URL(location.href).searchParams.get('q');", Atoms.castOrDie(String::class.java))
+        onWebView().check(webMatches(expression, equalTo(query)))
         shot("embedded-search")
         click("tab.Archive")
         node("sidebar.serverSwitcher").assertIsDisplayed()
         click("sidebar.serverSwitcher"); click("sidebar.switchServer.${secondSaved.id}")
-        node("sidebar.searchField").assertIsDisplayed()
-        assertEquals("", node("sidebar.searchField").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.EditableText].text)
-        click("sidebar.searchSubmit"); await("browser.ready")
+        click("sidebar.searchField"); await("browser.ready")
+        onWebView().check(webMatches(Atoms.script("return document.querySelector('form[role=search] input[name=q]').value;", Atoms.castOrDie(String::class.java)), equalTo("")))
         onWebView().check(webMatches(Atoms.script("return location.origin;", Atoms.castOrDie(String::class.java)), equalTo(second.trimEnd('/'))))
         click("tab.Settings")
         click("history.server.${firstSaved.id}", scroll = true)

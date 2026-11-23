@@ -51,7 +51,7 @@ Android intents support incoming shared text and app links. Long-press the launc
 
 Verified connections are remembered on this device with encrypted API keys. Select a remembered connection in Connection Settings, or use the server dropdown on the main menu when more than one connection has an API key. Switching the server you browse preserves your default share destination. Use **Forget** to remove a saved connection from this device.
 
-Search directly from the main menu. The search icon opens a mode menu with the server default, metadata, and full-text options; available modes refresh from the server. Results open in an authenticated embedded server page.
+Tap **Search archive** on the main menu to open your server’s search field. Operators, suggestions and results come from the authenticated server. When you tap **Search** while browsing a filtered library view, the app focuses that view’s search field and keeps the current folder, tag, domain, and filters. Older servers open their existing Snapshot search.
 
 For Tailscale, connect your Android device to your tailnet first and enter a server’s MagicDNS name or `100.x.y.z` address as a discovery hint, or paste the output of `tailscale status --json` from a computer on your tailnet. Only reachable candidates can be discovered, and a firewall or VPN policy can block access. You can always enter a server address directly, including a different port.
 

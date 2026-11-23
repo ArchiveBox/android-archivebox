@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.SystemClock
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import io.archivebox.app.data.*
 import io.archivebox.app.BuildConfig
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -40,6 +42,15 @@ internal fun allowedArchiveOrigin(url: String, server: String, adminUrl: String)
 }
 
 internal const val SNAPSHOT_GRID_PATH = "admin/core/snapshot/grid/"
+
+// OkHttp and Android expose encoded paths; compare the reverse proxy's prefix
+// in the same representation so spaces and reserved delimiters survive rotation.
+internal fun searchRoute(base: URI, encodedPath: String?): String? = when (encodedPath) {
+    base.resolve("core/snapshot/").rawPath -> "admin/core/snapshot/"
+    base.resolve("core/snapshot/grid/").rawPath -> SNAPSHOT_GRID_PATH
+    base.resolve("../$SEARCH_EDITOR_PATH").rawPath -> SEARCH_EDITOR_PATH
+    else -> null
+}
 
 internal enum class SnapshotTransferMenu(val menuID: String) {
     Import("library-import-menu"),
@@ -70,10 +81,11 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
     connection: ServerConfiguration,
     path: String,
     transferMenu: SnapshotTransferMenu? = null,
-    onSearchModes: ((List<String>) -> Unit)? = null,
+    onSearchPage: ((String, String?) -> Unit)? = null,
+    focusSearch: ((Boolean) -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val searchModesCallback by rememberUpdatedState(onSearchModes)
+    val searchPageCallback by rememberUpdatedState(onSearchPage)
     var browser by remember { mutableStateOf<WebView?>(null) }
     var session by remember(connection) { mutableStateOf<BrowserSession?>(null) }
     // These cells must outlive route changes: the WebView client retains their references.
@@ -95,6 +107,56 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
             }
             session = value
         } catch (e: Exception) { error = e.message ?: "Couldn't open your server's browser session." }
+    }
+    LaunchedEffect(focusSearch, ready, error, session, browser) {
+        val complete = focusSearch ?: return@LaunchedEffect
+        if (!ready && error == null) return@LaunchedEffect
+        val view = browser
+        val admin = session?.admin_url
+        if (error != null || view == null || admin == null || !sameOrigin(view.url.orEmpty(), admin)) {
+            complete(false)
+            return@LaunchedEffect
+        }
+        // Keep the server's form in place: it owns the active folder, tags, domain,
+        // filters and sort. The client never has to reconstruct a search scope.
+        val focusEditor = """
+            (() => {
+                if (location.origin !== new URL(${JSONObject.quote(admin)}).origin) return false;
+                const selectors = [
+                    '[role="search"] [role="combobox"][contenteditable="true"]',
+                    '[role="search"] input[name="q"]',
+                    '#content-main input[type="search"]'
+                ];
+                for (const selector of selectors) {
+                    const field = [...document.querySelectorAll(selector)].find(el =>
+                        !el.disabled && el.getClientRects().length && getComputedStyle(el).visibility === 'visible');
+                    if (field) {
+                        field.focus();
+                        field.scrollIntoView({block:'nearest'});
+                        return document.activeElement === field;
+                    }
+                }
+                // Some library pages (such as Domains) load their table and its
+                // search form together after the top-level document finishes.
+                return document.readyState !== 'complete' || document.querySelector('[aria-busy="true"]') ? null : false;
+            })();
+        """.trimIndent()
+        view.requestFocus()
+        val deadline = SystemClock.uptimeMillis() + 4_000
+        var result: String
+        do {
+            result = suspendCancellableCoroutine { continuation ->
+                view.evaluateJavascript(focusEditor) { value ->
+                    if (continuation.isActive) continuation.resume(value)
+                }
+            }
+            if (result != "null" || SystemClock.uptimeMillis() >= deadline) break
+            delay(120)
+        } while (true)
+        if (result == "true") context.getSystemService(InputMethodManager::class.java).showSoftInput(view, 0)
+        // A stalled library table still owns its search. Only a confirmed
+        // absence may move the user to the whole-archive editor.
+        complete(result != "false")
     }
     BackHandler(canBack) { browser?.goBack() }
     DisposableEffect(connection) {
@@ -130,6 +192,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                         settings.safeBrowsingEnabled = true
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
                         webViewClient = object : WebViewClient() {
+                            private var fallbackPage: String? = null
                             private var transferOpened = false
                             private var pageGeneration = 0
                             private var transferStartedOn = -1
@@ -173,20 +236,45 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                                 ready = false; error = null; canBack = view.canGoBack()
                             }
                             override fun onPageFinished(view: WebView, url: String) {
+                                if (fallbackPage != null && searchRoute(base, url.toHttpUrlOrNull()?.encodedPath) == SEARCH_EDITOR_PATH) return
+                                if (url == fallbackPage) {
+                                    // The unavailable editor was the entry page. Back must not reopen its 404.
+                                    view.clearHistory()
+                                    fallbackPage = null
+                                }
                                 ready = error == null; canBack = view.canGoBack()
                                 openTransferMenu(view, url)
-                                if (ready && searchModesCallback != null && sameOrigin(url, authenticated.admin_url)) {
-                                    view.evaluateJavascript("Array.from(document.querySelectorAll('select[name=search_mode] option'), option => option.value)") { result ->
-                                        val modes = runCatching {
-                                            val values = org.json.JSONArray(result)
-                                            (0 until values.length()).map { values.getString(it) }.filter { it.isNotBlank() }.distinct()
-                                        }.getOrDefault(emptyList())
-                                        if (modes.isNotEmpty()) searchModesCallback?.invoke(modes)
-                                    }
-                                }
+                                if (ready) rememberSearchPage(view, url)
+                            }
+                            override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+                                // The results stream can replace its query URL without loading another document.
+                                if (ready) rememberSearchPage(view, url)
+                            }
+                            private fun rememberSearchPage(view: WebView, url: String) {
+                                val record = searchPageCallback ?: return
+                                if (view !== browser || url != view.url || !sameOrigin(url, authenticated.admin_url)) return
+                                val page = url.toHttpUrlOrNull() ?: return
+                                val route = searchRoute(base, page.encodedPath) ?: return
+                                // Remember the URL for rotation. Mark this navigation as already loaded
+                                // so Compose's update block does not restart an active result stream.
+                                view.tag = url
+                                record(route + (page.encodedQuery?.let { "?$it" } ?: ""), if (route == SEARCH_EDITOR_PATH) null else page.queryParameter("q").orEmpty())
                             }
                             override fun onReceivedError(view: WebView, request: WebResourceRequest, failure: WebResourceError) { if (request.isForMainFrame) { ready = false; error = "Couldn't load this page. ${failure.description}" } }
-                            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) { if (request.isForMainFrame) { ready = false; error = "Server returned HTTP ${response.statusCode}." } }
+                            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                                if (!request.isForMainFrame) return
+                                if (response.statusCode == 404 && searchRoute(base, request.url.encodedPath) == SEARCH_EDITOR_PATH &&
+                                    sameOrigin(request.url.toString(), authenticated.admin_url)) {
+                                    // Older servers still expose their own supported Snapshot search.
+                                    val fallback = archiveSearchPath(request.url.getQueryParameter("q").orEmpty())
+                                    val url = base.resolve(fallback.removePrefix("admin/")).toString()
+                                    ready = false
+                                    fallbackPage = url
+                                    view.post { view.loadUrl(url) }
+                                    return
+                                }
+                                ready = false; error = "Server returned HTTP ${response.statusCode}."
+                            }
                             // The default SSL handler cancels certificate errors; never bypass certificate validation.
                         }
                         tag = destination
