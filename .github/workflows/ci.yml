@@ -108,23 +108,7 @@ jobs:
       BACKEND_REVISION: ${{ needs.changes.outputs.backend }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    permissions:
-      contents: read
-      actions: read
-      id-token: write
     steps:
-      - name: Set up Squid
-        if: >-
-          github.repository == 'ArchiveBox/android-archivebox' && github.ref == 'refs/heads/main' &&
-          (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-        uses: ArchiveBox/monorepo/.github/actions/setup-squid@20721aa85ba01c3d6713c4c9a3dfee9854c4b42c
-        with:
-          proxy: ${{ vars.SQUID_TAILNET_URL }}
-          ca: ${{ vars.SQUID_CA }}
-          tailscale-client-id: ${{ vars.SQUID_TAILSCALE_CLIENT_ID }}
-          tailscale-audience: ${{ vars.SQUID_TAILSCALE_AUDIENCE }}
-          browser: 'true'
-
       - uses: actions/checkout@v7
       - uses: actions/checkout@v7
         with:
