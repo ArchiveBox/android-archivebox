@@ -151,6 +151,17 @@ jobs:
         with:
           name: android-test-apks
           path: artifacts/apks
+      - name: Trust the CI proxy in the Android SDK
+        if: env.SQUID_CA_CERT != ''
+        shell: bash
+        run: |
+          # sdkmanager uses Java's truststore, not the proxy's PEM bundle.
+          java_home=$(java -XshowSettings:properties -version 2>&1 | sed -n 's/^ *java\.home = //p')
+          trust_store="$RUNNER_TEMP/archivebox-sdk-cacerts"
+          cp -L "$java_home/lib/security/cacerts" "$trust_store"
+          "$java_home/bin/keytool" -importcert -noprompt -storepass changeit \
+            -alias archivebox-ci-proxy -file "$SQUID_CA_CERT" -keystore "$trust_store"
+          printf 'JAVA_TOOL_OPTIONS=%s\n' "${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }-Djavax.net.ssl.trustStore=\"$trust_store\"" >> "$GITHUB_ENV"
       # Older runner-provided avdmanager versions misread API 37.0 as android-0.
       - uses: android-actions/setup-android@v4.0.4
         with:
