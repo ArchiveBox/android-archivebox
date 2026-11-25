@@ -173,6 +173,10 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Keep Android emulator discovery direct
+        # The emulator inherits the HTTP proxy and does not honor NO_PROXY.
+        # Discovery must reach the runner's loopback alias (10.0.2.2) directly.
+        run: printf '%s\n' HTTP_PROXY= http_proxy= >> "$GITHUB_ENV"
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: '37.0'
