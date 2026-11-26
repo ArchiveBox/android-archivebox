@@ -349,6 +349,8 @@ class ArchiveBoxJourneyTest {
         click("tab.Activity")
         await("browser.ready")
         shot("activity")
+        device.pressBack()
+        await("home.progress")
         route("Admin")
         shot("server-browser")
         val routes = listOf(
