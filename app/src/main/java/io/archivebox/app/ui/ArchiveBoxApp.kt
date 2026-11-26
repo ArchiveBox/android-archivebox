@@ -61,6 +61,8 @@ internal val adminRoutes = listOf(
     ServerRoute("Logs", "admin/environment/logs/", Icons.Outlined.ReceiptLong),
 )
 
+private const val ACTIVITY_PATH = "admin/activity/"
+
 internal class NavigationState : ViewModel() {
     val shareRequest = mutableStateOf<IncomingRequest?>(null)
     val connectionRequest = mutableStateOf<IncomingRequest?>(null)
@@ -84,7 +86,6 @@ internal class NavigationState : ViewModel() {
     var transferMenu by rememberSaveable { mutableStateOf<SnapshotTransferMenu?>(null) }
     var focusViewSearch by remember(connection?.id) { mutableStateOf<((Boolean) -> Unit)?>(null) }
     var searchText by rememberSaveable(connection?.id) { mutableStateOf("") }
-    var activityPath by rememberSaveable(connection?.id) { mutableStateOf("admin/") }
     var searchPath by rememberSaveable(connection?.id) { mutableStateOf(searchEditorPath("")) }
     var previousServerId by rememberSaveable { mutableStateOf(connection?.id) }
     var menuServerId by rememberSaveable { mutableStateOf(connection?.id) }
@@ -110,7 +111,6 @@ internal class NavigationState : ViewModel() {
     fun navigateTo(destination: String, closeBrowser: Boolean = false) {
         noteUserNavigation()
         if (destination == "Search") searchPath = searchEditorPath(searchText)
-        if (destination == "Activity") activityPath = "admin/"
         screen = destination
         if (closeBrowser) { browserPath = null; transferMenu = null }
     }
@@ -202,7 +202,7 @@ internal class NavigationState : ViewModel() {
         val progress = rememberHomeProgress(repository, connection, phoneHome)
         fun selectTab(destination: String) {
             if (destination != "Search" || connection == null ||
-                (browserPath == null && screen !in listOf("Search", "Activity"))) {
+                (browserPath == null && screen != "Search")) {
                 navigateTo(destination, closeBrowser = true)
                 return
             }
@@ -232,7 +232,7 @@ internal class NavigationState : ViewModel() {
                 modifier = Modifier.weight(1f),
                 topBar = {
                     TopAppBar(title = { Text(browserPath?.let { browserTitle } ?: if (screen == "Archive") "ArchiveBox" else if (screen == "Settings") "Connection Settings" else if (screen == "Search") "Search Archive" else if (screen == "Add") "Add URLs" else screen, fontWeight = FontWeight.SemiBold) },
-                        navigationIcon = { if (browserPath != null) IconButton(onClick = { navigateTo(screen, closeBrowser = true) }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back to archive") } else if (phoneHome) IconButton(onClick = { scope.launch { menuState.scrollToItem(0) } }, modifier = Modifier.testTag("tab.Archive")) {
+                        navigationIcon = { if (browserPath != null) IconButton(onClick = { navigateTo(screen, closeBrowser = true) }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back to archive") } else if (!wide && screen == "Activity") IconButton(onClick = { navigateTo("Archive") }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back to archive") } else if (phoneHome) IconButton(onClick = { scope.launch { menuState.scrollToItem(0) } }, modifier = Modifier.testTag("tab.Archive")) {
                             BrandMark()
                         } else if (!wide) BrandMark(Modifier.padding(start = 16.dp, end = 8.dp)) },
                         actions = {
@@ -247,7 +247,7 @@ internal class NavigationState : ViewModel() {
                 },
                 bottomBar = {
                     if (phoneHome) HomeActions(openSearch) { navigateTo("Add") }
-                    else if (!wide) NavigationBar { tabs.forEach { (name, icon) -> NavigationBarItem(selected = screen == name && browserPath == null, onClick = { selectTab(name) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) } }
+                    else if (!wide && screen != "Activity") NavigationBar { tabs.forEach { (name, icon) -> NavigationBarItem(selected = screen == name && browserPath == null, onClick = { selectTab(name) }, icon = { Icon(icon, name) }, label = { Text(name) }, modifier = Modifier.testTag("tab.$name")) } }
                 }
             ) { padding ->
                 Box(Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize()) {
@@ -264,8 +264,7 @@ internal class NavigationState : ViewModel() {
                             if (query != null) searchText = query
                         })
                         screen == "Search" -> ConnectPrompt { navigateTo("Settings") }
-                        screen == "Activity" && c != null -> ServerBrowser(repository, c, activityPath,
-                            focusSearch = focusViewSearch, onSearchPage = { path, _ -> activityPath = path })
+                        screen == "Activity" && c != null -> ServerBrowser(repository, c, ACTIVITY_PATH, activity = true)
                         screen == "Activity" -> ConnectPrompt { navigateTo("Settings") }
                         else -> HomeScreen(c, savedServers,
                             phoneHome = phoneHome, progress = progress, listState = menuState, onSwitch = switchServer,
@@ -328,7 +327,7 @@ internal class NavigationState : ViewModel() {
         if (connection == null || !phoneHome) item { Surface(onClick = onConnect, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) { ListItem(headlineContent = { Text(if (connection == null) "Connect your server" else "Your ArchiveBox server") }, supportingContent = { Text(connection?.server ?: "Your data. Your devices. Your archive.", maxLines = 1, overflow = TextOverflow.Ellipsis) }, leadingContent = { Icon(if (connection == null) Icons.Outlined.Link else Icons.Outlined.Dns, null) }, trailingContent = { Icon(Icons.Outlined.ChevronRight, null) }) } }
         if (!phoneHome && servers.size > 1) item { ServerSwitcher(connection, servers, onSwitch) }
         if (!phoneHome) item { SearchEntry(onSearch, Modifier.fillMaxWidth()) }
-        if (phoneHome && connection != null) item { HomeProgressStrip(progress) }
+        if (phoneHome && connection != null) item { HomeProgressStrip(progress, onActivity) }
         item { SectionTitle("Collection") }
         (if (phoneHome) phoneCollectionRoutes else collectionRoutes).forEach { route ->
             if (phoneHome && route.name == "Scheduled Crawls") item(key = "collection-divider") {
@@ -339,7 +338,7 @@ internal class NavigationState : ViewModel() {
             }
         }
         if (phoneHome) item {
-            RouteRow(ServerRoute("Activity", "admin/", Icons.Outlined.Downloading), true, "tab.Activity", onActivity)
+            RouteRow(ServerRoute("Activity", ACTIVITY_PATH, Icons.Outlined.Downloading), true, "tab.Activity", onActivity)
         }
         item { SectionTitle("Administration") }
         items(adminRoutes) { route -> RouteRow(route, connection != null) { onRoute(route) } }

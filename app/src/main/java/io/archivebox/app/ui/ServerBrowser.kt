@@ -80,6 +80,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
     repository: ArchiveRepository,
     connection: ServerConfiguration,
     path: String,
+    activity: Boolean = false,
     transferMenu: SnapshotTransferMenu? = null,
     onSearchPage: ((String, String?) -> Unit)? = null,
     focusSearch: ((Boolean) -> Unit)? = null,
@@ -179,6 +180,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                         // A wrap-content WebView reports a zero CSS percentage-height viewport.
                         // Server replay frames and dialogs need the actual bounded Compose viewport.
                         layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                        settings.userAgentString = "${settings.userAgentString} ArchiveBoxNative/Android"
                         settings.javaScriptEnabled = true
                         settings.useWideViewPort = true
                         settings.loadWithOverviewMode = true
@@ -289,7 +291,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                 update = { view -> if (view.tag != destination) { view.tag = destination; view.loadUrl(destination) } },
             )
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            if (!activity) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = { browser?.reload() }) { Icon(Icons.Outlined.Refresh, null); Spacer(Modifier.width(6.dp)); Text("Reload") }
                 TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(browser?.url ?: destination))) }) { Icon(Icons.Outlined.OpenInNew, null); Spacer(Modifier.width(6.dp)); Text("Open in browser") }
             }

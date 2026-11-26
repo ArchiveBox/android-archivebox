@@ -40,6 +40,13 @@ class ArchiveBoxJourneyTest {
             "function() { return window.location.pathname; }",
             Atoms.castOrDie(String::class.java),
         )
+        val progressVisible = Atoms.script(
+            """function() {
+                var monitor = document.getElementById('progress-monitor');
+                return monitor && monitor.getBoundingClientRect().height > 0 ? 'visible' : 'hidden';
+            }""",
+            Atoms.castOrDie(String::class.java),
+        )
         val providerPromptVisible = Atoms.script(
             """function(element) {
                 var style = window.getComputedStyle(element);
@@ -164,7 +171,14 @@ class ArchiveBoxJourneyTest {
         compose.onAllNodesWithTag("sidebar.serverSwitcher").assertCountEquals(0)
         node("home.actions").assertIsDisplayed()
         shot("home")
+        click("home.progress")
+        await("browser.ready")
+        onWebView().check(webMatches(currentPath, equalTo("/admin/activity/")))
+        onWebView().check(webMatches(progressVisible, equalTo("visible")))
+        device.pressBack()
+        await("home.progress")
         route("Snapshots")
+        onWebView().check(webMatches(progressVisible, equalTo("hidden")))
         assertTrue("The library must render its real page title", device.wait(Until.hasObject(By.textContains("Snapshots")), 10_000))
         compose.onAllNodesWithTag("home.progress").assertCountEquals(0)
         shot("library")

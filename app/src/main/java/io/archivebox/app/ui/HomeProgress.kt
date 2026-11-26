@@ -95,7 +95,7 @@ internal fun lastRefreshedLabel(elapsedMs: Long?): String {
     return "Last refreshed $elapsed ago…"
 }
 
-@Composable internal fun HomeProgressStrip(state: HomeProgressState) {
+@Composable internal fun HomeProgressStrip(state: HomeProgressState, onClick: () -> Unit) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     var now by remember(state.refreshedAt, state.offline) { mutableLongStateOf(SystemClock.elapsedRealtime()) }
@@ -109,6 +109,7 @@ internal fun lastRefreshedLabel(elapsedMs: Long?): String {
         }
     }
     Surface(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth().testTag("home.progress"),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(16.dp),
