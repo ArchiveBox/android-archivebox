@@ -195,6 +195,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
                         webViewClient = object : WebViewClient() {
                             private var fallbackPage: String? = null
+                            private var missingPage: String? = null
                             private var transferOpened = false
                             private var pageGeneration = 0
                             private var transferStartedOn = -1
@@ -238,11 +239,12 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                                 ready = false; error = null; canBack = view.canGoBack()
                             }
                             override fun onPageFinished(view: WebView, url: String) {
-                                if (fallbackPage != null && searchRoute(base, url.toHttpUrlOrNull()?.encodedPath) == SEARCH_EDITOR_PATH) return
+                                if (fallbackPage != null && url == missingPage) return
                                 if (url == fallbackPage) {
-                                    // The unavailable editor was the entry page. Back must not reopen its 404.
+                                    // Do not let Back reopen the entry page that returned 404.
                                     view.clearHistory()
                                     fallbackPage = null
+                                    missingPage = null
                                 }
                                 ready = error == null; canBack = view.canGoBack()
                                 openTransferMenu(view, url)
@@ -265,15 +267,22 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
                             override fun onReceivedError(view: WebView, request: WebResourceRequest, failure: WebResourceError) { if (request.isForMainFrame) { ready = false; error = "Couldn't load this page. ${failure.description}" } }
                             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
                                 if (!request.isForMainFrame) return
-                                if (response.statusCode == 404 && searchRoute(base, request.url.encodedPath) == SEARCH_EDITOR_PATH &&
-                                    sameOrigin(request.url.toString(), authenticated.admin_url)) {
-                                    // Older servers still expose their own supported Snapshot search.
-                                    val fallback = archiveSearchPath(request.url.getQueryParameter("q").orEmpty())
-                                    val url = base.resolve(fallback.removePrefix("admin/")).toString()
-                                    ready = false
-                                    fallbackPage = url
-                                    view.post { view.loadUrl(url) }
-                                    return
+                                val failedUrl = request.url.toString()
+                                if (response.statusCode == 404 && sameOrigin(failedUrl, authenticated.admin_url)) {
+                                    val fallback = when {
+                                        // Older servers only offer the inline monitor on the admin page.
+                                        activity && failedUrl == destination -> base.toString()
+                                        searchRoute(base, request.url.encodedPath) == SEARCH_EDITOR_PATH ->
+                                            base.resolve(archiveSearchPath(request.url.getQueryParameter("q").orEmpty()).removePrefix("admin/")).toString()
+                                        else -> null
+                                    }
+                                    if (fallback != null) {
+                                        ready = false
+                                        fallbackPage = fallback
+                                        missingPage = failedUrl
+                                        view.post { view.loadUrl(fallback) }
+                                        return
+                                    }
                                 }
                                 ready = false; error = "Server returned HTTP ${response.statusCode}."
                             }

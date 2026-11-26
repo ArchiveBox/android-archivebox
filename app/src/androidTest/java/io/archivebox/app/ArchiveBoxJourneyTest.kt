@@ -19,6 +19,9 @@ import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Until
+import io.archivebox.app.data.ArchiveApi
+import io.archivebox.app.data.ServerConfiguration
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Rule
@@ -28,6 +31,7 @@ import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.equalTo
 import java.io.File
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import java.net.URLEncoder
 
@@ -109,6 +113,26 @@ class ArchiveBoxJourneyTest {
         assertFalse("Server routes must authenticate, not render a login form", device.hasObject(By.text("Log in")))
         assertFalse("Server routes must not show a 404 page", device.hasObject(By.text("Not Found")))
     }
+    private fun expectedActivityPath(): String {
+        val session = runBlocking {
+            ArchiveApi().browserSession(ServerConfiguration(name = "Gallery", server = server, token = token))
+        }
+        val admin = URI(session.admin_url)
+        val activity = admin.resolve("activity/")
+        val request = activity.toURL().openConnection() as HttpURLConnection
+        request.instanceFollowRedirects = false
+        request.connectTimeout = 10_000
+        request.readTimeout = 10_000
+        request.setRequestProperty("Cookie", "${session.cookie.name}=${session.cookie.value}")
+        return try {
+            when (val status = request.responseCode) {
+                200 -> activity.path
+                404 -> admin.path
+                else -> throw AssertionError("Authenticated Activity probe returned HTTP $status")
+            }
+        } finally { request.disconnect() }
+    }
+
     private fun snapshots(search: String): List<JSONObject> {
         val query = URLEncoder.encode(search, "UTF-8")
         val connection = URL("${server.trimEnd('/')}/api/v1/core/snapshots?search=$query").openConnection() as HttpURLConnection
@@ -171,14 +195,17 @@ class ArchiveBoxJourneyTest {
         compose.onAllNodesWithTag("sidebar.serverSwitcher").assertCountEquals(0)
         node("home.actions").assertIsDisplayed()
         shot("home")
+        val activityPath = expectedActivityPath()
         click("home.progress")
         await("browser.ready")
-        onWebView().check(webMatches(currentPath, equalTo("/admin/activity/")))
+        onWebView().check(webMatches(currentPath, equalTo(activityPath)))
         onWebView().check(webMatches(progressVisible, equalTo("visible")))
         device.pressBack()
         await("home.progress")
         route("Snapshots")
-        onWebView().check(webMatches(progressVisible, equalTo("hidden")))
+        if (activityPath.endsWith("/activity/")) {
+            onWebView().check(webMatches(progressVisible, equalTo("hidden")))
+        }
         assertTrue("The library must render its real page title", device.wait(Until.hasObject(By.textContains("Snapshots")), 10_000))
         compose.onAllNodesWithTag("home.progress").assertCountEquals(0)
         shot("library")
