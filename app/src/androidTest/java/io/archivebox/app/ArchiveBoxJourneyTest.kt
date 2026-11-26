@@ -285,6 +285,8 @@ class ArchiveBoxJourneyTest {
         }
         assertNotNull("A share must persist a real snapshot", saved)
 
+        // The server can expose the tags before the app finishes saving its local tag history.
+        await("share.tagsSaved")
         click("tag.research", scroll = true)
         fill("add.tags", "verified")
         click("share.saveTags", scroll = true)
