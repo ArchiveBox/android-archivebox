@@ -350,6 +350,9 @@ class ArchiveBoxJourneyTest {
         await("browser.ready")
         shot("activity")
         device.pressBack()
+        await("home")
+        // Returning to the menu keeps its scroll position, so the status card may not be composed yet.
+        node("home").performScrollToNode(hasTestTag("home.progress"))
         await("home.progress")
         route("Admin")
         shot("server-browser")
