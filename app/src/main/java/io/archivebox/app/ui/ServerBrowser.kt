@@ -6,7 +6,6 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.SystemClock
 import android.view.ViewGroup
-import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -19,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.SoftwareKeyboardControllerCompat
 import io.archivebox.app.data.*
 import io.archivebox.app.BuildConfig
 import kotlinx.coroutines.delay
@@ -123,6 +123,11 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
         val focusEditor = """
             (() => {
                 if (location.origin !== new URL(${JSONObject.quote(admin)}).origin) return false;
+                if (typeof window.archiveBoxFocusSearch === 'function') {
+                    const focused = window.archiveBoxFocusSearch();
+                    return focused === false && document.querySelector('[aria-busy="true"]') ? null : focused;
+                }
+                // Older ArchiveBox servers do not expose the search focus hook.
                 const selectors = [
                     '[role="search"] [role="combobox"][contenteditable="true"]',
                     '[role="search"] input[name="q"]',
@@ -154,7 +159,7 @@ internal enum class SnapshotTransferMenu(val menuID: String) {
             if (result != "null" || SystemClock.uptimeMillis() >= deadline) break
             delay(120)
         } while (true)
-        if (result == "true") context.getSystemService(InputMethodManager::class.java).showSoftInput(view, 0)
+        if (result == "true") SoftwareKeyboardControllerCompat(view).show()
         // A stalled library table still owns its search. Only a confirmed
         // absence may move the user to the whole-archive editor.
         complete(result != "false")

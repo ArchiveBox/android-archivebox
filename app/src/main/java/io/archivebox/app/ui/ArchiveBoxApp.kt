@@ -201,9 +201,15 @@ internal class NavigationState : ViewModel() {
         val savedServers = registry.servers.filter { it.token.isNotBlank() }
         val progress = rememberHomeProgress(repository, connection, phoneHome)
         fun selectTab(destination: String) {
-            if (destination != "Search" || connection == null ||
-                (browserPath == null && screen != "Search")) {
+            if (destination != "Search" || connection == null) {
                 navigateTo(destination, closeBrowser = true)
+                return
+            }
+            if (browserPath == null && screen != "Search") {
+                navigateTo("Search", closeBrowser = true)
+                // Opening the search route does not itself focus the editor.
+                // Queue the same one-shot request and use the live form once it is ready.
+                focusViewSearch = { focusViewSearch = null }
                 return
             }
             noteUserNavigation()
@@ -212,7 +218,10 @@ internal class NavigationState : ViewModel() {
             focusViewSearch = { found ->
                 if (navigation.userNavigationVersion == revision) {
                     focusViewSearch = null
-                    if (!found) navigateTo("Search", closeBrowser = true)
+                    if (!found) {
+                        navigateTo("Search", closeBrowser = true)
+                        focusViewSearch = { focusViewSearch = null }
+                    }
                 }
             }
         }

@@ -2,8 +2,12 @@ package io.archivebox.app
 
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
+import android.view.KeyEvent
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.espresso.web.assertion.WebViewAssertions.webMatches
 import androidx.test.espresso.web.model.Atoms
 import androidx.test.espresso.web.sugar.Web.onWebView
@@ -14,6 +18,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
+import androidx.test.uiautomator.UiDevice
 import org.hamcrest.Matchers.equalTo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -61,6 +66,31 @@ class ServerSearchIntegrationTest {
             Uri.parse(onWebView().perform(currentUrl).get()).getQueryParameter("q") == query
         }
         return Uri.parse(onWebView().perform(currentUrl).get())
+    }
+
+    @Test fun homeSearchOpensWithKeyboardAndAcceptsTyping() {
+        connect()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        compose.onNodeWithTag("tab.Archive").performClick()
+        val started = SystemClock.elapsedRealtime()
+        compose.onNodeWithTag("sidebar.searchField").performClick()
+        await("browser.ready")
+        compose.waitUntil(10_000) {
+            var visible = false
+            instrumentation.runOnMainSync {
+                val window = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).single().window
+                visible = ViewCompat.getRootWindowInsets(window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+            }
+            visible
+        }
+        android.util.Log.i("ArchiveBoxSearch", "Home tap to visible IME: ${SystemClock.elapsedRealtime() - started} ms")
+        val input = Atoms.script("return document.querySelector('form[role=search] input[name=q]').value;", Atoms.castOrDie(String::class.java))
+        val device = UiDevice.getInstance(instrumentation)
+        device.pressKeyCode(KeyEvent.KEYCODE_4)
+        device.pressKeyCode(KeyEvent.KEYCODE_2)
+        compose.waitUntil(5_000) { onWebView().perform(input).get() == "42" }
+        submitServerSearch()
+        assertEquals("42", waitForSubmittedQuery("42").getQueryParameter("q"))
     }
 
     @Test fun submitAndReopenQuotedQuery() {
